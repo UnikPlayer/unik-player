@@ -23,9 +23,12 @@ if (typeof SystrayCtor !== 'function') {
 
 // === Настройки ===
 const SITE_URL = 'http://localhost:27272';
-// Получаем абсолютный путь к директории, где находится UnikPlayer.exe
-const exeDir = path.dirname(process.execPath);
-const ICON_PATH = path.join(exeDir, 'static', 'trayIcon.ico');
+// Получаем абсолютный путь к директории backend
+// В режиме разработки: __dirname это backend/funcs, нужно подняться на уровень выше
+// В режиме exe: process.execPath это UnikPlayer.exe, используем его dirname
+const isDev = !process.execPath.endsWith('UnikPlayer.exe');
+const backendDir = isDev ? path.join(__dirname, '..') : path.dirname(process.execPath);
+const ICON_PATH = path.join(backendDir, 'static', 'trayIcon.ico');
 const KILL_TARGET_BY_NAME = 'myapp.exe';
 
 let iconBase64 = '';

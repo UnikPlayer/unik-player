@@ -28,11 +28,12 @@ const fs = require('fs');
       input: './index.js',
       output: outputPath,
       target: 'windows-x64-14.15.3',
+      name: 'UnikPlayer',
       resources: ['../frontBuild/**/*'],
       ico: iconPath,
       rc: {
         CompanyName: "UNIKNOW",
-        FileDescription: "The best video player ever!",
+        FileDescription: "",
         ProductName: "UnikPlayer",
         FileVersion: "0.6.9.0",
         ProductVersion: "0.6.9.0",

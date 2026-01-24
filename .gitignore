@@ -1,15 +1,30 @@
 node_modules/
 dist/
-*.exe
+build/
+
+# C# builds
 bin/
 obj/
-build
-dist
-.vscode
+publish/
+*.exe
+*.dll
+*.pdb
+
+# Frontend build
 frontBuild/
 
+# Project build / installer
+projBuild/
+
+# IDE
+.vscode
+.vs/
+*.user
+
+# Claude
 .claude
 CLAUDE.MD
 tmpclaude-*
+
+# Misc
 *.vbs
-CreateShortcut.vbs

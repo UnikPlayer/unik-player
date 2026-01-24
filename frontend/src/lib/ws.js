@@ -2,15 +2,14 @@
 import { Vibrant } from "node-vibrant/browser";
 import { rgbToHex } from './convertToHex.js';
 
-import { style, title, artist, thumbnail, ShowTrack} from './stores/stores.js'
+import { title, artist, thumbnail, ShowTrack} from './stores/stores.js'
 import { get } from 'svelte/store';
-
-import bg from '$lib/images/background.gif';
-import Underline from "lucide-svelte/icons/underline";
 
 let mediaData = null;
 let ws;
 let reconnectTimeout = 1000;
+let currentBlobUrl = null;
+let lastBase64 = null;
 
 export function connect() {
     const url = 'ws://localhost:62727';
@@ -24,52 +23,63 @@ export function connect() {
   
     ws.onmessage = (e) => {
       try {
-
         mediaData = JSON.parse(e.data);
         console.log(mediaData);
-        //console.log(mediaData.media.thumbnail, " картинка нахуй")
-  
-        if (mediaData != null) {
 
-          if(get(title) != mediaData.media.title){
-            title.set(mediaData.media.title)
-          }
-          if(get(artist) != mediaData.media.artist){
-          artist.set(mediaData.media.artist)
-          }
+        // Проверяем что media существует и имеет ВСЕ необходимые данные
+        if (mediaData && mediaData.media &&
+            mediaData.media.title &&
+            mediaData.media.artist &&
+            mediaData.media.thumbnail &&
+            mediaData.media.thumbnail.data) {
 
-          if (mediaData.media.thumbnail !== undefined) {
+          const newTitle = mediaData.media.title;
+          const newArtist = mediaData.media.artist;
+          const base64 = mediaData.media.thumbnail.data;
 
-            const uint8 = new Uint8Array(mediaData.media.thumbnail.data);
-            const blob = new Blob([uint8], { type: 'image/png' });
-            let thumb = URL.createObjectURL(blob)
+          // Обновляем только если что-то изменилось
+          const titleChanged = get(title) !== newTitle;
+          const artistChanged = get(artist) !== newArtist;
+          const thumbChanged = base64 !== lastBase64;
 
-            if(get(thumbnail) != thumb){
-              thumbnail.set(thumb)
+          if (titleChanged || artistChanged || thumbChanged) {
+            // Обновляем title и artist
+            if (titleChanged) title.set(newTitle);
+            if (artistChanged) artist.set(newArtist);
+
+            // Обновляем thumbnail если изменился
+            if (thumbChanged) {
+              lastBase64 = base64;
+
+              // Освобождаем старый blob URL
+              if (currentBlobUrl) {
+                URL.revokeObjectURL(currentBlobUrl);
+              }
+
+              // Декодируем base64 в blob
+              const binaryString = atob(base64);
+              const bytes = new Uint8Array(binaryString.length);
+              for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+              }
+              const blob = new Blob([bytes], { type: 'image/png' });
+              currentBlobUrl = URL.createObjectURL(blob);
+
+              thumbnail.set(currentBlobUrl);
+
+              Vibrant.from(currentBlobUrl)
+               .getPalette()
+               .then((palette) => rgbToHex(palette))
+               .catch(() => {});
             }
-            
-            Vibrant.from(thumb)
-             .getPalette()
-             .then((palette) => 
-             rgbToHex(palette) );
-            
-          } else {
 
-            thumbnail.set(bg)
-            
-            Vibrant.from(bg)
-             .getPalette()
-             .then((palette) => 
-             rgbToHex(palette) );
-            
+            ShowTrack.set(true);
           }
-            //show media after changing all the data
-            
-            ShowTrack.set(true)
-
-        } else {
-          ShowTrack.set(false)
+        } else if (mediaData && mediaData.media === null) {
+          // Медиа остановлено - скрываем трек
+          ShowTrack.set(false);
         }
+        // Если данные неполные - просто игнорируем, оставляем предыдущее состояние
 
       } catch(err) {
         console.error('[WS] Parsing error', err);
