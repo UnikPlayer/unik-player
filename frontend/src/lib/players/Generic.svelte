@@ -5,28 +5,57 @@
 
   //styles
   import { fly } from 'svelte/transition';
+
+  // Preview mode props
+  export let preview = false;
+  export let showAlways = false;
+
+  // Demo data for fallback
+  const demoTitle = 'Midnight City';
+  const demoArtist = 'M83';
+  const demoThumbnail = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300"%3E%3Crect fill="%231a1a2e" width="300" height="300"/%3E%3Ctext x="150" y="160" text-anchor="middle" fill="%23B87333" font-size="40" font-family="sans-serif"%3EDEMO%3C/text%3E%3C/svg%3E';
+
+  // Use real data if available, fallback to demo
+  $: displayTitle = preview ? demoTitle : ($title || demoTitle);
+  $: displayArtist = preview ? demoArtist : ($artist || demoArtist);
+  $: displayThumbnail = preview ? demoThumbnail : ($thumbnail || demoThumbnail);
+  $: shouldShow = preview || showAlways || $ShowTrack;
+
+  // Animation config
+  const flyIn = { x: -50, duration: 400, opacity: 0 };
+  const flyOut = { x: 50, duration: 400, opacity: 0 };
 </script>
 
-{#if $ShowTrack}
-  {#key `${$title}-${$artist}-${$thumbnail}`}
-    <div class="mainDiv"
-  	in:fly|global={{ x: -50, duration: 400, opacity: 0 }}
-	  out:fly|global={{ x: 50, duration: 400, opacity: 0 }}>
-        <div class="picDiv">
-            <img class="pic" src={$thumbnail} alt="">
-        </div>
-        <div class="textDiv">
+{#if shouldShow}
+  {#key `${displayTitle}-${displayArtist}-${displayThumbnail}`}
+    <div class="player-Generic">
+      <div class="mainDiv"
+        in:fly|global={flyIn}
+        out:fly|global={flyOut}>
+          <div class="picDiv">
+              <img class="pic" src={displayThumbnail} alt="">
+          </div>
+          <div class="textDiv">
 
-          <h2 use:marquee={{speed:70}} class="title">{$title}</h2>
-          <h3 use:marquee={{speed:50}} class="artist">{$artist}</h3>
+            <h2 use:marquee={{speed:70}} class="title">{displayTitle}</h2>
+            <h3 use:marquee={{speed:50}} class="artist">{displayArtist}</h3>
 
-        </div>
+          </div>
+      </div>
     </div>
   {/key}
 {/if}
 
 <style lang="scss">
-.mainDiv {
+/* Scoped to .player-Generic so styles don't conflict with other players */
+:global(.player-Generic) {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+:global(.player-Generic .mainDiv) {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -34,12 +63,12 @@
   max-width: 100%;
 }
 
-.picDiv {
+:global(.player-Generic .picDiv) {
   overflow: hidden;
   z-index: 2;
 }
 
-.pic {
+:global(.player-Generic .pic) {
   width: 8rem;
   height: 8rem;
   object-fit: cover;
@@ -49,7 +78,7 @@
   z-index: 2;
 }
 
-.textDiv {
+:global(.player-Generic .textDiv) {
   display: flex;
   flex-direction: column;
   justify-content: space-around;
@@ -63,8 +92,8 @@
   z-index: 1;
 }
 
-.title,
-.artist {
+:global(.player-Generic .title),
+:global(.player-Generic .artist) {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -76,12 +105,12 @@
   text-overflow: ellipsis;
 }
 
-.title {
+:global(.player-Generic .title) {
   font-size: 1.8rem;
   margin-bottom: 0.3rem;
 }
 
-.artist {
+:global(.player-Generic .artist) {
   font-size: 1.7rem;
 }
 </style>

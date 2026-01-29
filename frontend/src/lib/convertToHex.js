@@ -1,37 +1,33 @@
-import { Vibrant } from "node-vibrant/browser";
-import { thumbnail } from './stores/stores.js'
+export function rgbToHex(palette) {
+  if (!palette) {
+    console.warn('[Vibrant] No palette received');
+    return;
+  }
 
-export async function rgbToHex(palette){
+  // Helper to safely set color variable
+  const setColor = (varName, swatch) => {
+    if (swatch && swatch.rgb) {
+      // Round RGB values for browser compatibility
+      const r = Math.round(swatch.rgb[0]);
+      const g = Math.round(swatch.rgb[1]);
+      const b = Math.round(swatch.rgb[2]);
+      const rgb = `rgb(${r},${g},${b})`;
+      document.documentElement.style.setProperty(varName, rgb);
+      console.log(`[Vibrant] Set ${varName} = ${rgb}`);
+    }
+  };
 
-document.documentElement.style.setProperty(
-    '--darkMuted',
-    `rgb(${palette.DarkMuted.rgb.join(',')})`);
+  setColor('--darkMuted', palette.DarkMuted);
+  setColor('--vibrant', palette.Vibrant);
+  setColor('--lightVibrant', palette.LightVibrant);
+  setColor('--muted', palette.Muted);
+  setColor('--darkVibrant', palette.DarkVibrant);
+  setColor('--lightMuted', palette.LightMuted);
 
-
-document.documentElement.style.setProperty(
-    '--vibrant',
-    `rgb(${palette.Vibrant.rgb.join(',')})`);
-
-
-document.documentElement.style.setProperty(
-    '--lightVibrant',
-    `rgb(${palette.LightVibrant.rgb.join(',')})`);
-
-
-document.documentElement.style.setProperty(
-    '--muted',
-    `rgb(${palette.Muted.rgb.join(',')})`);
-
-
-document.documentElement.style.setProperty(
-    '--darkVibrant',
-    `rgb(${palette.DarkVibrant.rgb.join(',')})`);
-
-
-document.documentElement.style.setProperty(
-    '--lightMuted',
-    `rgb(${palette.LightMuted.rgb.join(',')})`);
-
+  // Debug: verify the values are actually set
+  const computed = getComputedStyle(document.documentElement);
+  console.log('[Vibrant] Verification - computed --vibrant:', computed.getPropertyValue('--vibrant'));
+  console.log('[Vibrant] Colors applied to :root');
 }
     //I want to make variable for thumbnail, but it doesn't work(
 	// $: if (typeof document !== 'undefined') {

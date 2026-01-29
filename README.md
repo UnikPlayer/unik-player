@@ -65,6 +65,34 @@ npm install
 
 ## Разработка
 
+### Dev Mode
+
+В dev mode данные хранятся локально в `dev-data/` вместо `%LOCALAPPDATA%\UnikPlayer\`.
+
+**Настройка:**
+```bash
+# Скопировать .env.example в .env (уже сделано по умолчанию)
+cp backend-csharp/UnikPlayer/.env.example backend-csharp/UnikPlayer/.env
+```
+
+**`.env` конфигурация:**
+```env
+DEV_MODE=true              # true = локальные пути, false = %LOCALAPPDATA%
+DEV_DATA_DIR=../../dev-data  # Путь к dev данным
+```
+
+**Структура dev-data:**
+```
+dev-data/
+├── player-styles.json    # Настройки плееров (цвет, шрифт)
+└── css/
+    ├── BackPicture.css   # CSS для каждого плеера
+    ├── BigHead.css
+    ├── Generic.css
+    ├── Separate.css
+    └── Square.css
+```
+
 ### Быстрый старт
 
 **Терминал 1 - Backend (C#):**
@@ -79,18 +107,80 @@ dotnet run
 cd frontend
 npm run dev
 ```
-Запустится dev сервер на `http://localhost:7270`
+Запустится dev сервер на `http://localhost:5173`
 
 ### Порты
 | Сервис | Порт |
 |--------|------|
 | HTTP (статика) | 27272 |
 | WebSocket | 62727 |
-| Vite Dev Server | 7270 |
+| Vite Dev Server | 5173 |
+
+---
+
+## CSS Кастомизация
+
+Каждый плеер имеет свой CSS файл в `dev-data/css/` (dev) или `%LOCALAPPDATA%\UnikPlayer\css\` (prod).
+
+### Важно: стилизация текста
+
+Для стилизации текста используйте `.className *` вместо просто `.className`:
+
+```css
+/* ❌ Неправильно - не сработает */
+.title {
+  font-size: 2rem;
+}
+
+/* ✅ Правильно - marquee создаёт дочерние элементы */
+.title * {
+  font-size: 2rem;
+  color: var(--lightVibrant);
+}
+```
+
+### CSS переменные цветов
+
+Доступны переменные из обложки альбома (или статический цвет):
+
+| Переменная | Описание |
+|------------|----------|
+| `var(--vibrant)` | Основной яркий цвет |
+| `var(--lightVibrant)` | Светлый яркий |
+| `var(--darkVibrant)` | Тёмный яркий |
+| `var(--muted)` | Приглушённый |
+| `var(--lightMuted)` | Светлый приглушённый |
+| `var(--darkMuted)` | Тёмный приглушённый (фон) |
+
+### Структура плееров
+
+| Плеер | Классы |
+|-------|--------|
+| **Generic** | `.mainDiv` > `.picDiv` > `.pic` + `.textDiv` > `.title *` + `.artist *` |
+| **BigHead** | `.mainDiv` > `.picDiv` > `.pic` + `.textDiv` > `.title *` + `.artist *` |
+| **Square** | `.mainDiv` > `.mainDivGlow` + `.textDiv` > `.blurDiv` + `.title *` + `.artist *` |
+| **Separate** | `.mainDiv` > `.picDiv` + `.textDiv` > `.titleDiv` > `.title *` + `.artistDiv` > `.artist *` |
+| **BackPicture** | `.mainDiv` > `.mainDivGlow` + `.textDiv` > `.blurDiv` + `.title *` + `.artist *` |
 
 ---
 
 ## Сборка
+
+Полная сборка до установщика:
+
+npm run build:all
+
+# 1. Frontend
+cd frontend && npm run build && cd ..
+
+# 2. C# Backend (publish self-contained single-file)
+cd backend-csharp/UnikPlayer
+dotnet publish -c Release
+cd ../..
+
+# 3. NSIS Installer
+makensis projBuild/installer.nsi
+
 
 ### 1. Сборка Frontend
 

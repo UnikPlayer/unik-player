@@ -29,6 +29,35 @@ function ensureDirSync(p) {
   if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
 }
 
+// Styles file path - saved in AppData/Local/UnikPlayer
+const stylesDir = path.join(os.homedir(), 'AppData', 'Local', 'UnikPlayer');
+const stylesFilePath = path.join(stylesDir, 'player-styles.json');
+const cssDir = path.join(stylesDir, 'css');
+
+function loadStyles() {
+  try {
+    if (fs.existsSync(stylesFilePath)) {
+      const data = fs.readFileSync(stylesFilePath, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('[Styles] Error loading styles:', e.message);
+  }
+  return {};
+}
+
+function saveStyles(styles) {
+  try {
+    ensureDirSync(stylesDir);
+    fs.writeFileSync(stylesFilePath, JSON.stringify(styles, null, 2), 'utf-8');
+    console.log('[Styles] Saved to', stylesFilePath);
+    return true;
+  } catch (e) {
+    console.error('[Styles] Error saving styles:', e.message);
+    return false;
+  }
+}
+
 function copySnapshotRecursive(src, dest) {
   // Работает и для обычной FS, и для snapshot-псевдо-FS (когда файлы "встроены" в exe)
   try {
@@ -87,12 +116,131 @@ function startFrontendServer(options = {}) {
   const indexPath = path.join(staticDir, 'index.html');
 
   const server = http.createServer((req, res) => {
+    // CORS headers for dev mode (frontend on different port)
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    // Handle preflight
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
     let pathname;
     try {
       pathname = decodeURIComponent(new URL(req.url, `http://${req.headers.host}`).pathname);
     } catch (e) {
       pathname = req.url || '/';
     }
+
+    // API: GET /api/styles - load styles
+    if (pathname === '/api/styles' && req.method === 'GET') {
+      const styles = loadStyles();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(styles));
+      console.log('[API] GET /api/styles');
+      return;
+    }
+
+    // API: POST /api/styles - save styles
+    if (pathname === '/api/styles' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk.toString(); });
+      req.on('end', () => {
+        try {
+          const styles = JSON.parse(body);
+          const success = saveStyles(styles);
+          res.writeHead(success ? 200 : 500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success }));
+          console.log('[API] POST /api/styles', success ? 'OK' : 'FAILED');
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+
+    // API: GET /api/css/:playerName - load CSS file
+    const cssGetMatch = pathname.match(/^\/api\/css\/(\w+)$/);
+    if (cssGetMatch && req.method === 'GET') {
+      const playerName = cssGetMatch[1];
+      const cssFilePath = path.join(cssDir, `${playerName}.css`);
+      console.log(`[API] GET /api/css/${playerName} -> ${cssFilePath}`);
+
+      try {
+        if (fs.existsSync(cssFilePath)) {
+          const cssContent = fs.readFileSync(cssFilePath, 'utf-8');
+          res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8' });
+          res.end(cssContent);
+        } else {
+          // Return empty string if file doesn't exist
+          res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8' });
+          res.end('');
+        }
+      } catch (e) {
+        console.error(`[API] Error reading CSS for ${playerName}:`, e.message);
+        res.writeHead(500);
+        res.end('Server error');
+      }
+      return;
+    }
+
+    // API: POST /api/css/:playerName - save CSS file
+    const cssPostMatch = pathname.match(/^\/api\/css\/(\w+)$/);
+    if (cssPostMatch && req.method === 'POST') {
+      const playerName = cssPostMatch[1];
+      const cssFilePath = path.join(cssDir, `${playerName}.css`);
+
+      let body = '';
+      req.on('data', chunk => { body += chunk.toString(); });
+      req.on('end', () => {
+        try {
+          ensureDirSync(cssDir);
+          fs.writeFileSync(cssFilePath, body, 'utf-8');
+          console.log(`[API] POST /api/css/${playerName} -> saved to ${cssFilePath}`);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, path: cssFilePath }));
+        } catch (e) {
+          console.error(`[API] Error saving CSS for ${playerName}:`, e.message);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: e.message }));
+        }
+      });
+      return;
+    }
+
+    // API: GET /api/open-css/:playerName - open CSS file in default editor
+    const openCssMatch = pathname.match(/^\/api\/open-css\/(\w+)$/);
+    if (openCssMatch && req.method === 'GET') {
+      const playerName = openCssMatch[1];
+      const cssFilePath = path.join(cssDir, `${playerName}.css`);
+
+      try {
+        ensureDirSync(cssDir);
+        // Create file if doesn't exist
+        if (!fs.existsSync(cssFilePath)) {
+          fs.writeFileSync(cssFilePath, '', 'utf-8');
+        }
+        // Open in default editor
+        const { exec } = require('child_process');
+        exec(`start "" "${cssFilePath}"`, (err) => {
+          if (err) {
+            console.error(`[API] Error opening CSS file:`, err.message);
+          }
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, path: cssFilePath }));
+      } catch (e) {
+        console.error(`[API] Error:`, e.message);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      }
+      return;
+    }
+
     if (pathname === '/') pathname = '/index.html';
 
     const requested = path.normalize(path.join(staticDir, pathname));

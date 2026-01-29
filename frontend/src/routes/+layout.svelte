@@ -1,97 +1,92 @@
 <script>
   import { connect } from '$lib/ws.js';
   import { onMount } from 'svelte';
-
-  import { page } from '$app/stores';
+  import { page } from '$app/state';
 
   let showHeader = false;
-  
+
   onMount(() => {
-    connect()
-    
-  })
+    connect();
+  });
 
   $: {
-  showHeader = $page.url.pathname !== '/player';
+    // Hide header on main page (has its own) and player page
+    showHeader = page.url?.pathname !== '/player' && page.url?.pathname !== '/';
   }
-
 </script>
 
 {#if showHeader}
   <header>
-    <a href="/">Главная</a>
-    <a href="/howToMake">Как сделать <br/> свой дизайн</a>
-    <!-- <a href="/player">Picked player</a> -->
+    <a href="/">Main</a>
+    <a href="/howToMake">Custom Design</a>
   </header>
 {/if}
 
 <slot />
 
 <style>
-
-
-:global(.marquee__inner),
-:global(.marquee__content),
-:global(.marquee__content--clone) {
+  :global(.marquee__inner),
+  :global(.marquee__content),
+  :global(.marquee__content--clone) {
     color: inherit;
     font-family: inherit;
     white-space: nowrap;
   }
 
-a,
-a:visited,
-a::selection{
-  cursor: pointer;
-  user-select: none;
-  text-decoration: none;
-  
-  font-size: 1.5rem;
-  font-weight: 600;
+  a,
+  a:visited,
+  a::selection {
+    cursor: pointer;
+    user-select: none;
+    text-decoration: none;
 
-  color: var(--foreground);
-  transition: background 0.35s;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
 
-  height: 80%;
-  width: 12rem;
-  background-color: var(--special);
-  border-radius: 0 0 1rem 1rem;
+    color: rgba(255, 255, 255, 0.7);
+    transition: all 0.2s;
 
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0 2rem;
-}
-a:hover,
-a:active,
-a:focus {
-  
-  background-color: var(--special2);
-  text-decoration: none;
-  outline: none;
-}
-header{
-  height: 15vh;
-  margin: 0;
+    height: 80%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
 
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  justify-content: space-around;
-}
-  /* Применяем фон глобально или к обёртке */
-  :global(html,body, main) {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+  }
+
+  a:hover,
+  a:active,
+  a:focus {
+    background: rgba(184, 115, 51, 0.15);
+    border-color: rgba(184, 115, 51, 0.3);
+    color: #B87333;
+    text-decoration: none;
+    outline: none;
+  }
+
+  header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  :global(html, body, main) {
     margin: 0;
     padding: 0;
-    
-    background-color: var(--background);
+    background-color: #050510;
   }
 
-  
-
-  
-  :global(h1,h2,h3,h4,h5,h6,p){
-    color: var(--special);
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  :global(h1, h2, h3, h4, h5, h6, p) {
+    color: white;
+    font-family: 'JetBrains Mono', system-ui, sans-serif;
   }
-  
-  </style>
+</style>

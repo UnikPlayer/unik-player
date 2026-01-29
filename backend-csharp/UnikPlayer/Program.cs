@@ -1,4 +1,5 @@
 using System.Drawing.Drawing2D;
+using System.Drawing.Text;
 using System.Net;
 using System.Net.WebSockets;
 using System.Text;
@@ -26,13 +27,104 @@ class Program
     private static readonly int HTTP_PORT = 27272;
     private static readonly int WS_PORT = 62727;
 
+    // Data paths - initialized in Main based on DEV_MODE
+    private static string STYLES_DIR = "";
+    private static string STYLES_FILE = "";
+    private static string CSS_DIR = "";
+    private static bool DEV_MODE = false;
+
+    /// <summary>
+    /// Load .env file and return dictionary of key-value pairs
+    /// </summary>
+    static Dictionary<string, string> LoadEnvFile()
+    {
+        var env = new Dictionary<string, string>();
+        var envPaths = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, ".env"),
+            Path.Combine(Directory.GetCurrentDirectory(), ".env"),
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".env"),
+        };
+
+        foreach (var envPath in envPaths)
+        {
+            if (File.Exists(envPath))
+            {
+                Console.WriteLine($"[Config] Loading .env from: {envPath}");
+                foreach (var line in File.ReadAllLines(envPath))
+                {
+                    var trimmed = line.Trim();
+                    if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#")) continue;
+
+                    var eqIndex = trimmed.IndexOf('=');
+                    if (eqIndex > 0)
+                    {
+                        var key = trimmed.Substring(0, eqIndex).Trim();
+                        var value = trimmed.Substring(eqIndex + 1).Trim();
+                        env[key] = value;
+                    }
+                }
+                break;
+            }
+        }
+
+        return env;
+    }
+
+    /// <summary>
+    /// Initialize data paths based on DEV_MODE
+    /// </summary>
+    static void InitializePaths()
+    {
+        var env = LoadEnvFile();
+
+        DEV_MODE = env.TryGetValue("DEV_MODE", out var devMode) &&
+                   devMode.Equals("true", StringComparison.OrdinalIgnoreCase);
+
+        if (DEV_MODE)
+        {
+            // Dev mode: use local paths relative to project
+            var devDataDir = env.TryGetValue("DEV_DATA_DIR", out var dir) ? dir : "../../dev-data";
+            var basePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, devDataDir));
+
+            // Also try relative to current directory for `dotnet run`
+            if (!Directory.Exists(basePath))
+            {
+                basePath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), devDataDir));
+            }
+
+            STYLES_DIR = basePath;
+            Console.WriteLine($"[Config] DEV MODE - Data directory: {STYLES_DIR}");
+        }
+        else
+        {
+            // Production mode: use %LOCALAPPDATA%
+            STYLES_DIR = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "UnikPlayer"
+            );
+            Console.WriteLine($"[Config] PRODUCTION MODE - Data directory: {STYLES_DIR}");
+        }
+
+        STYLES_FILE = Path.Combine(STYLES_DIR, "player-styles.json");
+        CSS_DIR = Path.Combine(STYLES_DIR, "css");
+
+        // Ensure directories exist
+        Directory.CreateDirectory(STYLES_DIR);
+        Directory.CreateDirectory(CSS_DIR);
+    }
+
     [STAThread]
     static void Main(string[] args)
     {
-        // Single instance check
+        // Single instance check (skip in dev mode)
         bool createdNew;
         using var mutex = new Mutex(true, "UnikPlayer_SingleInstance", out createdNew);
-        if (!createdNew)
+
+        // Initialize paths first to check DEV_MODE
+        InitializePaths();
+
+        if (!createdNew && !DEV_MODE)
         {
             Console.WriteLine("UnikPlayer уже запущен!");
             return;
@@ -634,7 +726,76 @@ class Program
 
     static async Task HandleHttpRequest(HttpListenerContext context, string staticDir)
     {
-        var path = context.Request.Url?.AbsolutePath ?? "/";
+        var request = context.Request;
+        var response = context.Response;
+        var path = request.Url?.AbsolutePath ?? "/";
+
+        // CORS headers for dev mode
+        response.Headers.Add("Access-Control-Allow-Origin", "*");
+        response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        response.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
+
+        // Handle preflight
+        if (request.HttpMethod == "OPTIONS")
+        {
+            response.StatusCode = 204;
+            response.Close();
+            return;
+        }
+
+        // API: GET /api/fonts - get system fonts
+        if (path == "/api/fonts" && request.HttpMethod == "GET")
+        {
+            await HandleGetFonts(response);
+            return;
+        }
+
+        // API: GET /api/styles - load styles
+        if (path == "/api/styles" && request.HttpMethod == "GET")
+        {
+            await HandleGetStyles(response);
+            return;
+        }
+
+        // API: POST /api/styles - save styles
+        if (path == "/api/styles" && request.HttpMethod == "POST")
+        {
+            await HandlePostStyles(request, response);
+            return;
+        }
+
+        // API: GET /api/open-styles-folder - open folder in explorer
+        if (path == "/api/open-styles-folder" && request.HttpMethod == "GET")
+        {
+            await HandleOpenStylesFolder(response);
+            return;
+        }
+
+        // API: GET /api/css/{playerName} - get CSS for player
+        if (path.StartsWith("/api/css/") && request.HttpMethod == "GET")
+        {
+            var playerName = path.Substring("/api/css/".Length);
+            await HandleGetCSS(playerName, response);
+            return;
+        }
+
+        // API: POST /api/css/{playerName} - save CSS for player
+        if (path.StartsWith("/api/css/") && request.HttpMethod == "POST")
+        {
+            var playerName = path.Substring("/api/css/".Length);
+            await HandlePostCSS(playerName, request, response);
+            return;
+        }
+
+        // API: GET /api/open-css/{playerName} - open CSS file in explorer
+        if (path.StartsWith("/api/open-css/") && request.HttpMethod == "GET")
+        {
+            var playerName = path.Substring("/api/open-css/".Length);
+            await HandleOpenCSS(playerName, response);
+            return;
+        }
+
+        // Static file serving
         if (path == "/") path = "/index.html";
 
         var filePath = Path.GetFullPath(Path.Combine(staticDir, path.TrimStart('/')));
@@ -642,8 +803,8 @@ class Program
         // Security check
         if (!filePath.StartsWith(staticDir))
         {
-            context.Response.StatusCode = 403;
-            context.Response.Close();
+            response.StatusCode = 403;
+            response.Close();
             return;
         }
 
@@ -657,17 +818,266 @@ class Program
         {
             var content = await File.ReadAllBytesAsync(filePath);
             var ext = Path.GetExtension(filePath).ToLower();
-            context.Response.ContentType = GetMimeType(ext);
-            context.Response.ContentLength64 = content.Length;
-            await context.Response.OutputStream.WriteAsync(content);
+            response.ContentType = GetMimeType(ext);
+            response.ContentLength64 = content.Length;
+            await response.OutputStream.WriteAsync(content);
         }
         catch
         {
-            context.Response.StatusCode = 500;
+            response.StatusCode = 500;
         }
         finally
         {
-            context.Response.Close();
+            response.Close();
+        }
+    }
+
+    static async Task HandleGetStyles(HttpListenerResponse response)
+    {
+        try
+        {
+            string json = "{}";
+            if (File.Exists(STYLES_FILE))
+            {
+                json = await File.ReadAllTextAsync(STYLES_FILE);
+            }
+
+            var content = Encoding.UTF8.GetBytes(json);
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = content.Length;
+            await response.OutputStream.WriteAsync(content);
+            Console.WriteLine("[API] GET /api/styles");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] GET /api/styles error: {ex.Message}");
+            response.StatusCode = 500;
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandlePostStyles(HttpListenerRequest request, HttpListenerResponse response)
+    {
+        try
+        {
+            using var reader = new StreamReader(request.InputStream, request.ContentEncoding);
+            var body = await reader.ReadToEndAsync();
+
+            // Validate JSON
+            JsonDocument.Parse(body);
+
+            // Ensure directory exists
+            Directory.CreateDirectory(STYLES_DIR);
+
+            // Save to file
+            await File.WriteAllTextAsync(STYLES_FILE, body);
+
+            var result = Encoding.UTF8.GetBytes("{\"success\":true}");
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+            Console.WriteLine($"[API] POST /api/styles saved to {STYLES_FILE}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] POST /api/styles error: {ex.Message}");
+            var result = Encoding.UTF8.GetBytes("{\"success\":false}");
+            response.StatusCode = 400;
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandleOpenStylesFolder(HttpListenerResponse response)
+    {
+        try
+        {
+            // Ensure directory exists
+            Directory.CreateDirectory(STYLES_DIR);
+
+            // Open folder in Explorer and select the file if it exists
+            if (File.Exists(STYLES_FILE))
+            {
+                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{STYLES_FILE}\"");
+            }
+            else
+            {
+                System.Diagnostics.Process.Start("explorer.exe", STYLES_DIR);
+            }
+
+            var result = Encoding.UTF8.GetBytes("{\"success\":true}");
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+            Console.WriteLine($"[API] Opened styles folder: {STYLES_DIR}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] open-styles-folder error: {ex.Message}");
+            response.StatusCode = 500;
+            var result = Encoding.UTF8.GetBytes("{\"success\":false}");
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandleGetFonts(HttpListenerResponse response)
+    {
+        try
+        {
+            using var fonts = new InstalledFontCollection();
+            var fontList = fonts.Families
+                .Where(f => !string.IsNullOrEmpty(f.Name) && !f.Name.StartsWith("@"))
+                .Select(f => f.Name)
+                .OrderBy(f => f)
+                .ToList();
+
+            var json = JsonSerializer.Serialize(new { fonts = fontList });
+            var content = Encoding.UTF8.GetBytes(json);
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = content.Length;
+            await response.OutputStream.WriteAsync(content);
+            Console.WriteLine($"[API] GET /api/fonts - {fontList.Count} fonts");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] GET /api/fonts error: {ex.Message}");
+            response.StatusCode = 500;
+            var result = Encoding.UTF8.GetBytes("{\"fonts\":[]}");
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandleGetCSS(string playerName, HttpListenerResponse response)
+    {
+        try
+        {
+            // Sanitize player name
+            playerName = Path.GetFileNameWithoutExtension(playerName);
+            var cssFile = Path.Combine(CSS_DIR, $"{playerName}.css");
+
+            string css = "";
+            if (File.Exists(cssFile))
+            {
+                css = await File.ReadAllTextAsync(cssFile);
+            }
+
+            var content = Encoding.UTF8.GetBytes(css);
+            response.ContentType = "text/css; charset=utf-8";
+            response.ContentLength64 = content.Length;
+            await response.OutputStream.WriteAsync(content);
+            Console.WriteLine($"[API] GET /api/css/{playerName}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] GET /api/css error: {ex.Message}");
+            response.StatusCode = 500;
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandlePostCSS(string playerName, HttpListenerRequest request, HttpListenerResponse response)
+    {
+        try
+        {
+            // Sanitize player name
+            playerName = Path.GetFileNameWithoutExtension(playerName);
+            var cssFile = Path.Combine(CSS_DIR, $"{playerName}.css");
+
+            using var reader = new StreamReader(request.InputStream, request.ContentEncoding);
+            var css = await reader.ReadToEndAsync();
+
+            // Ensure directory exists
+            Directory.CreateDirectory(CSS_DIR);
+
+            // Save CSS file
+            await File.WriteAllTextAsync(cssFile, css);
+
+            var result = Encoding.UTF8.GetBytes("{\"success\":true}");
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+            Console.WriteLine($"[API] POST /api/css/{playerName} saved to {cssFile}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] POST /api/css error: {ex.Message}");
+            response.StatusCode = 500;
+            var result = Encoding.UTF8.GetBytes("{\"success\":false}");
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandleOpenCSS(string playerName, HttpListenerResponse response)
+    {
+        try
+        {
+            // Sanitize player name
+            playerName = Path.GetFileNameWithoutExtension(playerName);
+            var cssFile = Path.Combine(CSS_DIR, $"{playerName}.css");
+
+            // Ensure directory exists
+            Directory.CreateDirectory(CSS_DIR);
+
+            // Create empty file if it doesn't exist
+            if (!File.Exists(cssFile))
+            {
+                await File.WriteAllTextAsync(cssFile, "/* Custom styles for " + playerName + " */\n");
+            }
+
+            // Open file in default editor
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = cssFile,
+                UseShellExecute = true
+            });
+
+            var result = Encoding.UTF8.GetBytes("{\"success\":true}");
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+            Console.WriteLine($"[API] Opened CSS file: {cssFile}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] open-css error: {ex.Message}");
+            response.StatusCode = 500;
+            var result = Encoding.UTF8.GetBytes("{\"success\":false}");
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+        }
+        finally
+        {
+            response.Close();
         }
     }
 

@@ -5,29 +5,58 @@
 
   //styles
   import { fly } from 'svelte/transition';
+
+  // Preview mode props
+  export let preview = false;
+  export let showAlways = false;
+
+  // Demo data for fallback
+  const demoTitle = 'Midnight City';
+  const demoArtist = 'M83';
+  const demoThumbnail = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300"%3E%3Crect fill="%231a1a2e" width="300" height="300"/%3E%3Ctext x="150" y="160" text-anchor="middle" fill="%23B87333" font-size="40" font-family="sans-serif"%3EDEMO%3C/text%3E%3C/svg%3E';
+
+  // Use real data if available, fallback to demo
+  $: displayTitle = preview ? demoTitle : ($title || demoTitle);
+  $: displayArtist = preview ? demoArtist : ($artist || demoArtist);
+  $: displayThumbnail = preview ? demoThumbnail : ($thumbnail || demoThumbnail);
+  $: shouldShow = preview || showAlways || $ShowTrack;
+
+  // Animation config
+  const flyIn = { x: -50, duration: 400, opacity: 0 };
+  const flyOut = { x: 50, duration: 400, opacity: 0 };
 </script>
 
 
-{#if $ShowTrack}
-  {#key `${$title}-${$artist}-${$thumbnail}`}
-    <div class="mainDiv"
-    		in:fly|global={{ x: -50, duration: 400, opacity: 0 }}
-  		  out:fly|global={{x:  50, duration: 400, opacity: 0 }}>
-      <div class="mainDivGlow"></div>
-      <!-- background here, becouse i use variable from svelte store. css can't reach scipts -->
-      <div class="textDiv" style="background-image: url('{$thumbnail}');">
+{#if shouldShow}
+  {#key `${displayTitle}-${displayArtist}-${displayThumbnail}`}
+    <div class="player-BackPicture">
+      <div class="mainDiv"
+          in:fly|global={flyIn}
+          out:fly|global={flyOut}>
+        <div class="mainDivGlow"></div>
+        <!-- background here, becouse i use variable from svelte store. css can't reach scipts -->
+        <div class="textDiv" style="background-image: url('{displayThumbnail}');">
 
-        <h2 use:marquee={{speed:70, optGap:69}} class="title">{$title}</h2>
-        <h3 use:marquee={{speed:50, optGap:69}} class="artist">{$artist}</h3>
+          <h2 use:marquee={{speed:70, optGap:69}} class="title">{displayTitle}</h2>
+          <h3 use:marquee={{speed:50, optGap:69}} class="artist">{displayArtist}</h3>
 
-        <div class="blurDiv"></div>
+          <div class="blurDiv"></div>
+        </div>
       </div>
     </div>
   {/key}
 {/if}
 
 <style lang="scss">
-.blurDiv {
+/* Scoped to .player-BackPicture so styles don't conflict with other players */
+:global(.player-BackPicture) {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+:global(.player-BackPicture .blurDiv) {
   position: absolute;
   top: 0;
   left: 0;
@@ -38,8 +67,7 @@
   z-index: 1;
 }
 
-.mainDiv {
-  position: relative;
+:global(.player-BackPicture .mainDiv) {
   display: flex;
   align-items: stretch;
   width: 18rem;
@@ -47,7 +75,7 @@
   height: 7.5rem;
 }
 
-.mainDivGlow {
+:global(.player-BackPicture .mainDivGlow) {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -60,7 +88,7 @@
   z-index: 0;
 }
 
-.textDiv {
+:global(.player-BackPicture .textDiv) {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -73,20 +101,20 @@
   z-index: 1;
 }
 
-.title {
+:global(.player-BackPicture .title) {
   flex: 3;
   padding: 0.5rem 1rem;
   font-size: 1.8rem;
 }
 
-.artist {
+:global(.player-BackPicture .artist) {
   flex: 2;
   padding: 0.8rem 1rem;
   font-size: 1.6rem;
 }
 
-.title,
-.artist {
+:global(.player-BackPicture .title),
+:global(.player-BackPicture .artist) {
   position: relative;
   display: flex;
   align-items: center;

@@ -1,0 +1,35 @@
+/* === Generic Player Styles === */
+/* Structure: .mainDiv > .picDiv > .pic + .textDiv > .title + .artist */
+/* Use .className * {} to style text (marquee creates child elements) */
+
+* {
+  font-family: "Rubik", sans-serif;
+}
+
+.picDiv {
+  border-radius: 1rem;
+  border: 0.2rem solid var(--lightMuted);
+}
+
+.pic {
+  width: 8rem;
+  height: 8rem;
+}
+
+.textDiv {
+  width: 20rem;
+  height: 8rem;
+  background: var(--darkMuted);
+  border: 0.2rem solid var(--vibrant);
+  border-radius: 0 1rem 1rem 0;
+}
+
+.title * {
+  font-size: 1.8rem;
+  color: var(--lightVibrant);
+}
+
+.artist * {
+  font-size: 1.7rem;
+  color: var(--lightVibrant);
+}

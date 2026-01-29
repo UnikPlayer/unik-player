@@ -5,39 +5,67 @@
 
   //styles
   import { fly } from 'svelte/transition';
+
+  // Preview mode props
+  export let preview = false;
+  export let showAlways = false;
+
+  // Demo data for fallback
+  const demoTitle = 'Midnight City';
+  const demoArtist = 'M83';
+  const demoThumbnail = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300"%3E%3Crect fill="%231a1a2e" width="300" height="300"/%3E%3Ctext x="150" y="160" text-anchor="middle" fill="%23B87333" font-size="40" font-family="sans-serif"%3EDEMO%3C/text%3E%3C/svg%3E';
+
+  // Use real data if available, fallback to demo
+  $: displayTitle = preview ? demoTitle : ($title || demoTitle);
+  $: displayArtist = preview ? demoArtist : ($artist || demoArtist);
+  $: displayThumbnail = preview ? demoThumbnail : ($thumbnail || demoThumbnail);
+  $: shouldShow = preview || showAlways || $ShowTrack;
+
+  // Animation config
+  const flyIn = { x: -50, duration: 400, opacity: 0 };
+  const flyOut = { x: 50, duration: 400, opacity: 0 };
 </script>
 
-{#if $ShowTrack}
-  {#key `${$title}-${$artist}-${$thumbnail}`}
-    <div class="mainDiv"
-  		in:fly|global={{  x: -50, duration: 400, opacity: 0 }}
-	   out:fly|global={{  x:  50, duration: 400, opacity: 0 }}>
-        <div class="picDiv">
-            <img class="pic" src={$thumbnail} alt="">
-        </div>
-        <div class="textDiv">
-            <div class="titleDiv">
-                <h2 use:marquee={{speed:70}} class="title">{$title}</h2>
-            </div>
+{#if shouldShow}
+  {#key `${displayTitle}-${displayArtist}-${displayThumbnail}`}
+    <div class="player-Separate">
+      <div class="mainDiv"
+          in:fly|global={flyIn}
+          out:fly|global={flyOut}>
+          <div class="picDiv">
+              <img class="pic" src={displayThumbnail} alt="">
+          </div>
+          <div class="textDiv">
+              <div class="titleDiv">
+                  <h2 use:marquee={{speed:70}} class="title">{displayTitle}</h2>
+              </div>
 
-            <div class="artistDiv">
-                <h3 use:marquee={{speed:50}} class="artist">{$artist}</h3>
-            </div>
-
-        </div>
+              <div class="artistDiv">
+                  <h3 use:marquee={{speed:50}} class="artist">{displayArtist}</h3>
+              </div>
+          </div>
+      </div>
     </div>
   {/key}
 {/if}
 
 <style lang="scss">
-.mainDiv {
+/* Scoped to .player-Separate so styles don't conflict with other players */
+:global(.player-Separate) {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+:global(.player-Separate .mainDiv) {
   display: flex;
   align-items: stretch;
   gap: 0.6rem;
   max-width: 100%;
 }
 
-.pic {
+:global(.player-Separate .pic) {
   display: block;
   border-radius: 1rem;
   border: 0.2rem solid var(--lightMuted);
@@ -47,7 +75,7 @@
   flex: 0 0 10rem;
 }
 
-.textDiv {
+:global(.player-Separate .textDiv) {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -55,7 +83,7 @@
   gap: 0.6rem;
 }
 
-.titleDiv {
+:global(.player-Separate .titleDiv) {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -63,10 +91,10 @@
   border: 0.2rem solid var(--vibrant);
   background-color: var(--darkMuted);
   flex: 4;
-  padding: 0.8rem 1rem;
+  padding: 0.8rem 0rem;
 }
 
-.artistDiv {
+:global(.player-Separate .artistDiv) {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -74,11 +102,11 @@
   border: 0.2rem solid var(--vibrant);
   background-color: var(--darkMuted);
   flex: 2;
-  padding: 0.6rem 1rem;
+  padding: 0.6rem 0rem;
 }
 
-.title,
-.artist {
+:global(.player-Separate .title),
+:global(.player-Separate .artist) {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -90,11 +118,11 @@
   line-height: 1.2;
 }
 
-.title {
+:global(.player-Separate .title) {
   font-size: 1.8rem;
 }
 
-.artist {
+:global(.player-Separate .artist) {
   font-size: 1.3rem;
 }
 </style>

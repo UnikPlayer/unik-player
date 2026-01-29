@@ -1,0 +1,38 @@
+/* === Square Player Styles === */
+/* Structure: .mainDiv > .mainDivGlow + .textDiv > .blurDiv + .title + .artist */
+/* Background image is on .textDiv via inline style */
+/* Use .className * {} to style text (marquee creates child elements) */
+
+* {
+  font-family: "Rubik", sans-serif;
+}
+
+.mainDiv {
+  width: 10rem;
+  height: 10rem;
+}
+
+.mainDivGlow {
+  box-shadow: 0 0 35px 5px var(--lightMuted);
+  border-radius: 1rem;
+}
+
+.textDiv {
+  border-radius: 1rem;
+  border: 0.2rem solid var(--lightMuted);
+}
+
+.blurDiv {
+  backdrop-filter: blur(8px);
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.title * {
+  font-size: 1.5rem;
+  color: var(--lightVibrant);
+}
+
+.artist * {
+  font-size: 1.5rem;
+  color: var(--lightVibrant);
+}

@@ -2,29 +2,33 @@
 Unicode True
 
 !define PRODUCT_NAME "UnikPlayer"
-!define PRODUCT_VERSION "0.6.9.0"
+!define PRODUCT_VERSION "0.7.0.0"
 !define PRODUCT_PUBLISHER "uniknow"
 !define PRODUCT_WEBSITE "https://github.com/UNIKNOW0/unik-player"
 !define APP_DIR "UnikPlayer"
 
+; Paths to C# backend
+!define CSHARP_BUILD "..\backend-csharp\UnikPlayer\bin\Release\net9.0-windows10.0.17763.0\win-x64\publish"
+!define CSHARP_SRC "..\backend-csharp\UnikPlayer"
+
 ; Modern UI
 !include "MUI2.nsh"
 
-; MUI Settings - иконки для установщика
-!define MUI_ICON "..\backend\static\trayIcon.ico"
-!define MUI_UNICON "..\backend\static\trayIcon.ico"
+; MUI Settings - icons for installer
+!define MUI_ICON "${CSHARP_SRC}\icon.ico"
+!define MUI_UNICON "${CSHARP_SRC}\icon.ico"
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
 OutFile ".\UnikPlayer_Installer.exe"
 
-; Иконка для самого .exe файла установщика
-Icon "..\backend\static\trayIcon.ico"
-UninstallIcon "..\backend\static\trayIcon.ico"
+; Icon for installer exe
+Icon "${CSHARP_SRC}\icon.ico"
+UninstallIcon "${CSHARP_SRC}\icon.ico"
 
 InstallDir "$APPDATA\${APP_DIR}"
 RequestExecutionLevel user
 
-VIProductVersion "${PRODUCT_VERSION}" ; <-- Версия продукта, 4 числа
+VIProductVersion "${PRODUCT_VERSION}"
 VIAddVersionKey "ProductName" "${PRODUCT_NAME}"
 VIAddVersionKey "ProductVersion" "${PRODUCT_VERSION}"
 VIAddVersionKey "CompanyName" "${PRODUCT_PUBLISHER}"
@@ -44,27 +48,24 @@ VIAddVersionKey "FileVersion" "${PRODUCT_VERSION}"
 Section "Main Application Files" SEC_MAIN
     SectionIn RO  ; Read-only, always installed
 
-    ; Копируем UnikPlayer.exe в корневую директорию установки
+    ; Copy UnikPlayer.exe (C# self-contained single-file)
     SetOutPath "$INSTDIR"
-    File "..\backend\UnikPlayer.exe"
+    File "${CSHARP_BUILD}\UnikPlayer.exe"
 
-    ; Копируем VBS файлы для запуска
-    File "..\backend\UnikPlayer-NoConsole.vbs"
-    File "..\backend\UnikPlayer-Autostart.vbs"
+    ; Copy tray icons (all from source folder)
+    File "${CSHARP_SRC}\icon.ico"
+    File "${CSHARP_SRC}\home.svg"
+    File "${CSHARP_SRC}\exit.svg"
 
-    ; Копируем node_modules (только необходимые нативные модули)
-    SetOutPath "$INSTDIR\node_modules"
-    File /r "..\backend\node_modules\@coooookies"
-    File /r "..\backend\node_modules\systray"
+    ; Copy frontend build
+    SetOutPath "$INSTDIR\frontBuild"
+    File /r "..\frontBuild\*"
 
-    ; Копируем статические файлы (иконка)
-    SetOutPath "$INSTDIR\static"
-    File /r "..\backend\static\*"
-
-    ; Создаем ярлык в меню "Пуск" (всегда создается)
+    ; Create Start Menu shortcut
     CreateDirectory "$SMPROGRAMS\${PRODUCT_NAME}"
-    CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\UnikPlayer-NoConsole.vbs" "" "$INSTDIR\static\trayIcon.ico" 0
+    CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\UnikPlayer.exe" "" "$INSTDIR\icon.ico" 0
 
+    ; Registry entries for uninstall
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "DisplayName" "${PRODUCT_NAME}"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "DisplayVersion" "${PRODUCT_VERSION}"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" "Publisher" "${PRODUCT_PUBLISHER}"
@@ -77,16 +78,15 @@ Section "Main Application Files" SEC_MAIN
 SectionEnd
 
 Section "Desktop Shortcut" SEC_DESKTOP
-    ; Создаем ярлык на рабочем столе с иконкой
-    CreateShortCut "$DESKTOP\${PRODUCT_NAME}.lnk" "$INSTDIR\UnikPlayer-NoConsole.vbs" "" "$INSTDIR\static\trayIcon.ico" 0
+    CreateShortCut "$DESKTOP\${PRODUCT_NAME}.lnk" "$INSTDIR\UnikPlayer.exe" "" "$INSTDIR\icon.ico" 0
 SectionEnd
 
 Section "Autostart" SEC_AUTOSTART
-    ; Добавляем в автозагрузку
-    CreateShortCut "$SMSTARTUP\${PRODUCT_NAME}.lnk" "$INSTDIR\UnikPlayer-Autostart.vbs" "" "$INSTDIR\static\trayIcon.ico" 0
+    ; Add to autostart with --autostart flag
+    CreateShortCut "$SMSTARTUP\${PRODUCT_NAME}.lnk" "$INSTDIR\UnikPlayer.exe" "--autostart" "$INSTDIR\icon.ico" 0
 SectionEnd
 
-; Описания секций
+; Section descriptions
 LangString DESC_SEC_MAIN ${LANG_ENGLISH} "Main application files (required)"
 LangString DESC_SEC_DESKTOP ${LANG_ENGLISH} "Create a desktop shortcut"
 LangString DESC_SEC_AUTOSTART ${LANG_ENGLISH} "Start UnikPlayer automatically when Windows starts"
@@ -101,33 +101,31 @@ LangString DESC_SEC_AUTOSTART ${LANG_RUSSIAN} "Запускать UnikPlayer а�
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_AUTOSTART} $(DESC_SEC_AUTOSTART)
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
-; Выбираем Desktop Shortcut по умолчанию, но не Autostart
+; Default selections
 Function .onInit
-    ; Desktop shortcut включен по умолчанию
     SectionSetFlags ${SEC_DESKTOP} 1
-    ; Autostart выключен по умолчанию
     SectionSetFlags ${SEC_AUTOSTART} 0
 FunctionEnd
 
 Section "Uninstall"
-    ; Удаляем ярлыки сначала
+    ; Delete shortcuts
     Delete "$DESKTOP\${PRODUCT_NAME}.lnk"
     Delete "$SMSTARTUP\${PRODUCT_NAME}.lnk"
     RMDir /r "$SMPROGRAMS\${PRODUCT_NAME}"
 
-    ; Удаляем все файлы и папки
+    ; Delete files
     Delete "$INSTDIR\UnikPlayer.exe"
-    Delete "$INSTDIR\UnikPlayer-NoConsole.vbs"
-    Delete "$INSTDIR\UnikPlayer-Autostart.vbs"
+    Delete "$INSTDIR\icon.ico"
+    Delete "$INSTDIR\home.svg"
+    Delete "$INSTDIR\exit.svg"
     Delete "$INSTDIR\uninstall.exe"
 
-    ; Удаляем папки с содержимым
-    RMDir /r /REBOOTOK "$INSTDIR\node_modules"
-    RMDir /r /REBOOTOK "$INSTDIR\static"
+    ; Delete frontBuild folder
+    RMDir /r /REBOOTOK "$INSTDIR\frontBuild"
 
-    ; Удаляем саму директорию установки
+    ; Delete install directory
     RMDir /REBOOTOK "$INSTDIR"
 
-    ; Удаляем из реестра
+    ; Delete registry
     DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 SectionEnd

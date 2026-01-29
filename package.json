@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "build:all": "cd frontend && npm run build && cd ../backend-csharp/UnikPlayer && dotnet publish -c Release && cd ../../projBuild && makensis installer.nsi"
+  }
+}

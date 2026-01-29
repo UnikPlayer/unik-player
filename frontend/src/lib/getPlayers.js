@@ -6,14 +6,12 @@ import BackPicture from '$lib/players/BackPicture.svelte';
 import BigHead from '$lib/players/BigHead.svelte';
 import Generic from '$lib/players/Generic.svelte';
 import Separate from '$lib/players/Separate.svelte';
-import Square from '$lib/players/Square.svelte';
 
 const players = {
   BackPicture,
   BigHead,
   Generic,
-  Separate,
-  Square
+  Separate
 };
 
 export function getAllPlayers() {

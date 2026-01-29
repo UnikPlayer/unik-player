@@ -28,3 +28,10 @@ tmpclaude-*
 
 # Misc
 *.vbs
+
+# Environment files (keep .env.example)
+.env
+!.env.example
+
+# Dev data (keep css templates)
+dev-data/player-styles.json
