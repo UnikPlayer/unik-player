@@ -107,6 +107,12 @@ export let title     = writable(null)
 export let artist    = writable(null)
 export let thumbnail = writable(null)
 
+// Track progress data
+export let trackPosition = writable(0)      // current position in seconds
+export let trackDuration = writable(0)      // total duration in seconds
+export let trackProgress = writable(0)      // 0-100 percentage
+export let isPlaying = writable(false)      // playback status
+
 // UI state
 export let ShowTrack = writable(false)
 export let ShowNotification = writable(false)
@@ -115,7 +121,9 @@ export let notificationText = writable("Copied!")
 // Editor state
 export let editorOpen = writable(false)
 export let editingPlayer = writable(null)
+export let editingPlayerIsCustom = writable(false)
 export let editorCSS = writable("")
+export let editorHTML = writable("") // For custom player HTML editing
 
 // Player custom styles (saved per player) - synced with backend API for OBS
 export let playerStyles = createPlayerStylesStore()

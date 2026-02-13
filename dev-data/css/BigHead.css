@@ -1,37 +1,68 @@
-/* === BigHead Player Styles === */
-/* Structure: .mainDiv > .picDiv > .pic + .textDiv > .title + .artist */
-/* Use .className * {} to style text (marquee creates child elements) */
+/* === BIGHEAD PLAYER === */
+/* Colors: var(--vibrant), var(--lightVibrant),
+   var(--darkVibrant), var(--muted),
+   var(--lightMuted), var(--darkMuted) */
 
-* {
+.title > *, .artist > * {
   font-family: "Rubik", sans-serif;
+}
+
+.mainDiv {
+  display: flex;
+  align-items: center;
+  gap: 0;
 }
 
 .picDiv {
   width: 9.5rem;
   height: 9.5rem;
-  border-radius: 1rem;
+  flex: 0 0 9.5rem;
+  overflow: hidden;
   border: 0.2rem solid var(--lightMuted);
+  border-radius: 1rem;
+  z-index: 2;
 }
 
 .pic {
   width: 100%;
   height: 100%;
+  object-fit: cover;
 }
 
 .textDiv {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
   width: 20rem;
   height: 6.5rem;
+  padding: 0.8rem 1rem;
   background: var(--darkMuted);
-  border: 0.2rem solid var(--vibrant);
   border-radius: 0 1rem 1rem 0;
+  border: 0.2rem solid var(--vibrant);
+  border-left: none;
+  margin-left: -0.2rem;
+  z-index: 1;
 }
 
-.title * {
+.title, .artist {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+  line-height: 1.2;
+  color: var(--lightVibrant);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.title {
+  margin-bottom: 0.3rem;
+}
+
+.title > * {
   font-size: 1.8rem;
-  color: var(--lightVibrant);
 }
 
-.artist * {
+.artist > * {
   font-size: 1.3rem;
-  color: var(--lightVibrant);
 }

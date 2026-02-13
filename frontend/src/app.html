@@ -1,63 +1,103 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<title>UnikPlayer</title>
-		<link rel="icon" href="%sveltekit.assets%/favicon.ico" />
-		
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+    <head>
+        <meta charset="utf-8" />
+        <title>UnikPlayer</title>
+        <link rel="icon" href="%sveltekit.assets%/favicon.ico" />
 
-		<link rel="preconnect" href="https://fonts.googleapis.com">
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-		<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=JetBrains+Mono:wght@400;500;600;700&family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&family=Rubik:ital,wght@0,300..900;1,300..900&family=Yeseva+One&display=swap" rel="stylesheet">
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-		%sveltekit.head%
-	</head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=JetBrains+Mono:wght@400;500;600;700&family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&family=Rubik:ital,wght@0,300..900;1,300..900&family=Yeseva+One&display=swap"
+            rel="stylesheet"
+        />
 
-	<body data-sveltekit-preload-data="hover">
-		<div>%sveltekit.body%</div>
-		<!-- <script src="%sveltekit.assets%/index.js"></script> -->
-	</body>
+        %sveltekit.head%
+    </head>
 
-	<style>
+    <body data-sveltekit-preload-data="hover">
+        <div>%sveltekit.body%</div>
+        <!-- <script src="%sveltekit.assets%/index.js"></script> -->
+    </body>
 
-	:root{
-        --background:#000000;
-        --foreground:#6290C3;
-        --foreground2:#C2E7DA;
-        --special:#F1FFE7;
-        --special2:#BAFF29;
+    <style>
+        @font-face {
+            font-family: "Press Start 2P";
+            src: url("/fonts/PressStart2P-Regular.ttf") format("truetype");
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
 
-        /* Player color variables - defaults, Vibrant.js will override */
-        --vibrant: #D4944A;
-        --lightVibrant: #F5DEB3;
-        --darkVibrant: #5C4033;
-        --muted: #8B6914;
-        --lightMuted: #B87333;
-        --darkMuted: rgba(20, 15, 10, 0.9);
-    }
+        /* Пример подключения своего шрифта:
+	   1. Положи файл в frontend/static/fonts/MyFont.ttf
+	   2. Раскомментируй и замени названия ниже
+	   3. Добавь 'MyFont' в список availableFonts в Editor.svelte
 
-	h1,h2,h3,h4,h5,h6,p,div,body,html{
-	 font-family: Sansation, Garamond, sans-serif;
-	 color: var(--special);
-	}
-
-	h2 > *{
-		font-size: 2.5rem;
-	}
-	h3 > *{
-		font-size: 2rem;
+	@font-face {
+		font-family: 'MyFont';
+		src: url('/fonts/MyFont.ttf') format('truetype');
 		font-weight: 400;
+		font-style: normal;
+		font-display: swap;
 	}
+	*/
 
+        :root {
+            /* === SITE COLORS (static, used in UI) === */
+            --site-background: #000000;
+            --site-accent: #b87333;
+            --site-accent-light: #d4944a;
+            --site-accent-dark: #8b5a2b;
+            --site-text: #f1ffe7;
+            --site-text-muted: rgba(255, 255, 255, 0.5);
+            --site-border: rgba(255, 255, 255, 0.1);
+            --site-glass: rgba(255, 255, 255, 0.05);
 
-	body {
-	 margin: 0;
-	 padding: 0;
-	 overflow-x: hidden;
-	}
-	
+            /* Legacy site colors */
+            --background: #000000;
+            --foreground: #6290c3;
+            --foreground2: #c2e7da;
+            --special: #f1ffe7;
+            --special2: #baff29;
 
-	</style>
-	
+            /* === PLAYER COLORS (dynamic, Vibrant.js will override) === */
+            --vibrant: #d4944a;
+            --lightVibrant: #f5deb3;
+            --darkVibrant: #5c4033;
+            --muted: #8b6914;
+            --lightMuted: #b87333;
+            --darkMuted: rgba(20, 15, 10, 0.9);
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6,
+        p,
+        div,
+        body,
+        html {
+            font-family: Sansation, Garamond, sans-serif;
+            color: var(--special);
+        }
+
+        h2 > * {
+            font-size: 2.5rem;
+        }
+        h3 > * {
+            font-size: 2rem;
+            font-weight: 400;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+    </style>
 </html>

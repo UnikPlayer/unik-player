@@ -1,119 +1,80 @@
 <script>
   import { onMount } from 'svelte';
   import { fade, fly, scale } from 'svelte/transition';
-  import { getAllPlayers } from '$lib/getPlayers.js';
+  import { getAllPlayers, getAllPlayersAsync, invalidateCustomPlayersCache, getBuiltInPlayerNames, getPlayerMeta } from '$lib/getPlayers.js';
   import PlayerCard from '$lib/components/PlayerCard.svelte';
   import Editor from '$lib/components/Editor.svelte';
   import Notification from '$lib/components/Notification.svelte';
+  import CustomPlayerUploader from '$lib/components/CustomPlayerUploader.svelte';
+  import MediaFilter from '$lib/components/MediaFilter.svelte';
   import { title, artist, thumbnail, ShowTrack, language } from '$lib/stores/stores.js';
+  import { transformCSS, injectCSS, loadCSSFromBackend } from '$lib/utils/playerCSS.js';
 
   let players = [];
   let hoveredStep = null;
-
-  // Backend API base URL
-  const isBrowser = typeof window !== 'undefined';
-  const API_BASE = isBrowser && window.location.port === '5173'
-    ? 'http://localhost:27272'
-    : '';
+  let showUploader = false;
+  let showFilter = false;
 
   /**
-   * Transform user CSS to be scoped to player preview.
-   * User writes: .mainDiv { background: red; }
-   * We output: .preview-container .player-Generic .mainDiv { background: red !important; }
-   */
-  function transformCSSForPreview(rawCSS, playerName) {
-    if (!rawCSS || !rawCSS.trim()) return '';
-
-    const scope = `.preview-container .player-${playerName}`;
-    let css = rawCSS.replace(/\/\*[\s\S]*?\*\//g, '');
-    const parts = css.split('}');
-    const transformed = [];
-
-    for (let part of parts) {
-      part = part.trim();
-      if (!part) continue;
-
-      const braceIdx = part.indexOf('{');
-      if (braceIdx === -1) continue;
-
-      let selector = part.substring(0, braceIdx).trim();
-      let body = part.substring(braceIdx + 1).trim();
-
-      if (!selector || !body) continue;
-      if (selector.startsWith('@')) {
-        transformed.push(part + '}');
-        continue;
-      }
-
-      const selectors = selector.split(',').map(s => {
-        s = s.trim();
-        if (!s) return '';
-        if (s.includes('.preview-container')) return s;
-        if (s === '*') return `${scope} *`;
-        return `${scope} ${s}`;
-      }).filter(s => s);
-
-      if (selectors.length === 0) continue;
-
-      body = body.replace(/:\s*([^;!]+);/g, ': $1 !important;');
-      if (body && !body.endsWith(';') && !body.endsWith('!important')) {
-        body = body.replace(/:\s*([^;!{}]+)$/, ': $1 !important');
-      }
-
-      transformed.push(`${selectors.join(', ')} { ${body} }`);
-    }
-
-    return transformed.join('\n');
-  }
-
-  /**
-   * Load and inject CSS for all players
+   * Load and inject CSS for all built-in players (preview cards)
    */
   async function loadAllPlayerCSS() {
-    const playerNames = ['BackPicture', 'BigHead', 'Generic', 'Separate'];
+    const playerNames = getBuiltInPlayerNames();
     let allCSS = '';
 
     for (const name of playerNames) {
       try {
-        const res = await fetch(`${API_BASE}/api/css/${name}`);
-        if (res.ok) {
-          const rawCSS = await res.text();
-          if (rawCSS && rawCSS.trim()) {
-            const transformed = transformCSSForPreview(rawCSS, name);
-            allCSS += `/* === ${name} === */\n${transformed}\n\n`;
-          }
+        let rawCSS = await loadCSSFromBackend(name);
+
+        if (!rawCSS) {
+          // No user CSS — use factory default from player meta
+          const meta = getPlayerMeta(name);
+          rawCSS = meta?.defaultCSS || '';
+        }
+
+        if (rawCSS) {
+          const transformed = transformCSS(rawCSS, name, '.preview-container');
+          allCSS += `/* === ${name} === */\n${transformed}\n\n`;
         }
       } catch (err) {
         console.warn(`[CSS] Failed to load CSS for ${name}:`, err);
       }
     }
 
-    // Inject all CSS into head
-    if (allCSS.trim()) {
-      const existing = document.getElementById('unik-preview-css');
-      if (existing) existing.remove();
+    injectCSS(allCSS, 'unik-preview-css');
+  }
 
-      const style = document.createElement('style');
-      style.id = 'unik-preview-css';
-      style.textContent = allCSS;
-      document.head.appendChild(style);
-      console.log('[CSS] Injected preview CSS for all players');
-    }
+  async function loadPlayers() {
+    players = await getAllPlayersAsync();
+    loadAllPlayerCSS();
+  }
+
+  async function handleCustomPlayerAdded(name) {
+    invalidateCustomPlayersCache();
+    await loadPlayers();
   }
 
   onMount(() => {
-    players = getAllPlayers();
-    loadAllPlayerCSS();
+    loadPlayers();
 
     // Listen for CSS refresh events from Editor
     const handleCSSRefresh = () => {
       console.log('[Main] CSS refresh triggered');
       loadAllPlayerCSS();
     };
+
+    // Listen for custom player deletion
+    const handlePlayerDeleted = () => {
+      console.log('[Main] Player deleted, refreshing list');
+      loadPlayers();
+    };
+
     window.addEventListener('unik-css-refresh', handleCSSRefresh);
+    window.addEventListener('unik-player-deleted', handlePlayerDeleted);
 
     return () => {
       window.removeEventListener('unik-css-refresh', handleCSSRefresh);
+      window.removeEventListener('unik-player-deleted', handlePlayerDeleted);
     };
   });
 
@@ -132,6 +93,8 @@
       step2Desc: 'Copy link to clipboard',
       step3: 'Paste in OBS',
       step3Desc: 'Browser Source → URL',
+      addCustom: 'Add Custom',
+      addCustomDesc: 'Upload your HTML player',
     },
     ru: {
       widgets: 'ВИДЖЕТЫ',
@@ -142,6 +105,8 @@
       step2Desc: 'Ссылка скопируется',
       step3: 'Вставь в OBS',
       step3Desc: 'Browser Source → URL',
+      addCustom: 'Добавить',
+      addCustomDesc: 'Загрузи свой HTML плеер',
     }
   };
 
@@ -188,6 +153,7 @@
       <nav class="nav-links">
         <a href="#library" class="nav-link">{texts.widgets}</a>
         <a href="/howToMake" class="nav-link">{texts.docs}</a>
+        <button class="nav-link filter-btn" on:click={() => showFilter = true}>FILTER</button>
       </nav>
     </div>
 
@@ -243,18 +209,35 @@
   <section class="players-section" id="library">
     <div class="players-grid">
       {#each players as player}
-        <PlayerCard component={player.component} name={player.name} />
+        <PlayerCard
+          component={player.component}
+          name={player.name}
+          isCustom={player.isCustom || false}
+          error={player.error || null}
+        />
       {/each}
 
       <!-- Add Custom Card -->
-      <div class="add-custom-card">
-        <div class="add-icon">+</div>
-        <span class="add-title">Add Custom</span>
-        <span class="add-desc">Import your own .svelte file</span>
-        <span class="add-soon">coming soon</span>
-      </div>
+      <button class="add-custom-card" on:click={() => showUploader = true}>
+        <div class="add-icon">&lt;/&gt;</div>
+        <span class="add-title">{texts.addCustom}</span>
+        <span class="add-desc">{texts.addCustomDesc}</span>
+      </button>
     </div>
   </section>
+
+  <!-- Custom Player Uploader -->
+  <CustomPlayerUploader
+    visible={showUploader}
+    onClose={() => showUploader = false}
+    onSuccess={handleCustomPlayerAdded}
+  />
+
+  <!-- Media Filter -->
+  <MediaFilter
+    visible={showFilter}
+    onClose={() => showFilter = false}
+  />
 
   <!-- Footer -->
   <footer class="page-footer">
@@ -347,15 +330,15 @@
 
   .logo-icon {
     color: #B87333;
-    font-family: monospace;
-    font-size: 1.8rem;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.9rem;
     padding-left: 1.5rem;
   }
 
   .logo-text {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.5rem;
-    font-weight: 700;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.8rem;
+    font-weight: 400;
     color: white;
     letter-spacing: 0.02em;
     padding: 0rem 0.5rem;
@@ -371,12 +354,12 @@
   }
 
   .nav-link {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem;
-    font-weight: 600;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.5rem;
+    font-weight: 400;
     color: rgba(255, 255, 255, 0.5);
     text-decoration: none;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.05em;
     transition: color 0.2s;
 
     &:hover {
@@ -384,17 +367,24 @@
     }
   }
 
+  .filter-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+  }
+
   .lang-toggle {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
-    font-weight: 600;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.45rem;
+    font-weight: 400;
     color: #B87333;
     background: rgba(184, 115, 51, 0.1);
     border: 1px solid rgba(184, 115, 51, 0.4);
     border-radius: 4px;
     padding: 0.3rem 0.6rem;
     cursor: pointer;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.05em;
     transition: all 0.2s;
 
     &:hover {
@@ -431,10 +421,10 @@
   }
 
   .step-num {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.45rem;
     color: #B87333;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.02em;
   }
 
   .step-text {
@@ -444,22 +434,22 @@
   }
 
   .step-title {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem;
-    font-weight: 600;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.5rem;
+    font-weight: 400;
     color: white;
     letter-spacing: 0.02em;
   }
 
   .step-desc {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.35rem;
     color: rgba(255, 255, 255, 0.4);
   }
 
   .guide-arrow {
-    font-family: monospace;
-    font-size: 1.2rem;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.8rem;
     color: rgba(255, 255, 255, 0.2);
   }
 
@@ -493,12 +483,12 @@
   }
 
   .footer-link {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
-    font-weight: 600;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.45rem;
+    font-weight: 400;
     color: rgba(255, 255, 255, 0.5);
     text-decoration: none;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.05em;
     transition: color 0.2s;
 
     &:hover {
@@ -507,12 +497,12 @@
   }
 
   .footer-btn-donate {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
-    font-weight: 600;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.45rem;
+    font-weight: 400;
     color: #B87333;
     text-decoration: none;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.05em;
     padding: 0.4rem 1rem;
     border: 1px solid rgba(184, 115, 51, 0.4);
     border-radius: 4px;
@@ -526,10 +516,10 @@
   }
 
   .footer-text {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.4rem;
     color: rgba(255, 255, 255, 0.3);
-    letter-spacing: 0.2em;
+    letter-spacing: 0.1em;
   }
 
   // Add Custom Card
@@ -538,52 +528,55 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
+    gap: 0.75rem;
     min-height: 200px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 2px dashed rgba(255, 255, 255, 0.15);
+    background: rgba(184, 115, 51, 0.03);
+    border: 2px dashed rgba(184, 115, 51, 0.3);
     border-radius: 8px;
-    cursor: not-allowed;
+    cursor: pointer;
     transition: all 0.2s;
-    opacity: 0.6;
 
     &:hover {
-      border-color: rgba(184, 115, 51, 0.3);
-      background: rgba(184, 115, 51, 0.03);
+      border-color: rgba(184, 115, 51, 0.6);
+      background: rgba(184, 115, 51, 0.08);
+
+      .add-icon {
+        color: #B87333;
+        transform: scale(1.1);
+      }
+
+      .add-title {
+        color: #B87333;
+      }
+    }
+
+    &:active {
+      transform: scale(0.98);
     }
   }
 
   .add-icon {
-    font-size: 2.5rem;
-    color: rgba(255, 255, 255, 0.3);
-    font-weight: 300;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.5rem;
+    color: rgba(184, 115, 51, 0.6);
+    font-weight: 600;
     line-height: 1;
+    transition: all 0.2s;
   }
 
   .add-title {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.5);
-    letter-spacing: 0.05em;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.5rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 0.02em;
+    transition: color 0.2s;
   }
 
   .add-desc {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    color: rgba(255, 255, 255, 0.3);
-  }
-
-  .add-soon {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.6rem;
-    color: #B87333;
-    background: rgba(184, 115, 51, 0.15);
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
-    margin-top: 0.5rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.35rem;
+    color: rgba(255, 255, 255, 0.4);
   }
 
   // Responsive

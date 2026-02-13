@@ -41,6 +41,12 @@ VIAddVersionKey "FileVersion" "${PRODUCT_VERSION}"
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
 
+; Finish page - run app after install
+!define MUI_FINISHPAGE_RUN "$INSTDIR\UnikPlayer.exe"
+!define MUI_FINISHPAGE_RUN_TEXT "Launch ${PRODUCT_NAME}"
+!define MUI_FINISHPAGE_RUN_CHECKED
+!insertmacro MUI_PAGE_FINISH
+
 ; Language
 !insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_LANGUAGE "Russian"

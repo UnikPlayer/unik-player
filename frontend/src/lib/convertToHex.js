@@ -1,6 +1,6 @@
 export function rgbToHex(palette) {
   if (!palette) {
-    console.warn('[Vibrant] No palette received');
+    //console.warn('[Vibrant] No palette received');
     return;
   }
 
@@ -13,7 +13,7 @@ export function rgbToHex(palette) {
       const b = Math.round(swatch.rgb[2]);
       const rgb = `rgb(${r},${g},${b})`;
       document.documentElement.style.setProperty(varName, rgb);
-      console.log(`[Vibrant] Set ${varName} = ${rgb}`);
+      //console.log(`[Vibrant] Set ${varName} = ${rgb}`);
     }
   };
 
@@ -26,8 +26,8 @@ export function rgbToHex(palette) {
 
   // Debug: verify the values are actually set
   const computed = getComputedStyle(document.documentElement);
-  console.log('[Vibrant] Verification - computed --vibrant:', computed.getPropertyValue('--vibrant'));
-  console.log('[Vibrant] Colors applied to :root');
+  //console.log('[Vibrant] Verification - computed --vibrant:', computed.getPropertyValue('--vibrant'));
+  //console.log('[Vibrant] Colors applied to :root');
 }
     //I want to make variable for thumbnail, but it doesn't work(
 	// $: if (typeof document !== 'undefined') {

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Showcase Player</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: transparent; }
+
+    .card {
+      position: relative;
+      width: 20rem;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      background: var(--darkMuted);
+      border: 1px solid var(--muted);
+      box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    }
+
+    .art {
+      position: relative;
+      width: 100%;
+      height: 8rem;
+      overflow: hidden;
+    }
+    .art img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .art::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 50%;
+      background: linear-gradient(transparent, var(--darkMuted));
+    }
+
+    .body { padding: 0.6rem 0.8rem 0.5rem; }
+
+    .title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--lightVibrant);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .artist {
+      font-size: 0.75rem;
+      color: var(--lightVibrant);
+      opacity: 0.6;
+      margin-top: 0.1rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bar-wrap {
+      margin-top: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .time {
+      font-size: 0.55rem;
+      color: var(--lightVibrant);
+      opacity: 0.5;
+      min-width: 2rem;
+    }
+    .time.end { text-align: right; }
+    .bar {
+      flex: 1;
+      height: 3px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--vibrant), var(--lightVibrant));
+      border-radius: 2px;
+      transition: width 0.5s linear;
+    }
+
+    .status {
+      margin-top: 0.35rem;
+      font-size: 0.5rem;
+      color: var(--vibrant);
+      opacity: 0.7;
+      letter-spacing: 0.1em;
+    }
+    .status[data-playing="true"]::before { content: 'NOW PLAYING'; }
+    .status[data-playing="false"]::before { content: 'PAUSED'; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="art">
+    <img src="{{thumbnail}}" alt="">
+  </div>
+  <div class="body">
+    <div class="title">{{title}}</div>
+    <div class="artist">{{artist}}</div>
+    <div class="bar-wrap">
+      <span class="time" data-bind="currentTime">0:00</span>
+      <div class="bar"><div class="fill" data-bind="progress-width"></div></div>
+      <span class="time end" data-bind="totalTime">0:00</span>
+    </div>
+    <div class="status" data-bind="playing" data-playing="false"></div>
+  </div>
+</div>
+</body>
+</html>

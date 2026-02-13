@@ -10,7 +10,7 @@ export function marquee(node, opts = {}) {
     },
     destroy() {
       destroy();
-    }
+    },
   };
 }
 
@@ -18,15 +18,15 @@ export function marquee(node, opts = {}) {
 export function initMarquee(el, opts = {}) {
   if (!el) return () => {};
   const { speed = 60, gap: optGap = 50, debug = false } = opts;
-  const gap = typeof optGap === 'number' ? optGap : 20;
+  const gap = typeof optGap === "number" ? optGap : 20;
 
   // --- Если нет .marquee__content — создаём и переносим внутрь все дочерние узлы ---
   let createdSrc = false;
-  let src = el.querySelector('.marquee__content');
+  let src = el.querySelector(".marquee__content");
   if (!src) {
     createdSrc = true;
-    src = document.createElement('span');
-    src.className = 'marquee__content';
+    src = document.createElement("span");
+    src.className = "marquee__content";
     // Переносим все дочерние узлы в span (сохраняет структуру)
     while (el.firstChild) src.appendChild(el.firstChild);
     el.appendChild(src);
@@ -51,34 +51,38 @@ export function initMarquee(el, opts = {}) {
 
   function createWrapIfNeeded() {
     if (wrap) return;
-    wrap = document.createElement('div');
-    wrap.className = 'marquee__wrap';
+    wrap = document.createElement("div");
+    wrap.className = "marquee__wrap";
     Object.assign(wrap.style, {
-      display: 'inline-flex',
-      alignItems: 'center',
-      whiteSpace: 'nowrap',
-      transform: 'translateX(0px)',
-      willChange: 'transform',
-      pointerEvents: 'none',
-      color: 'inherit' // наследуем цвет от родителя (h2)
+      position: "absolute",
+      top: "0",
+      left: "0",
+      height: "100%",
+      display: "inline-flex",
+      alignItems: "center",
+      whiteSpace: "nowrap",
+      transform: "translateX(0px)",
+      willChange: "transform",
+      pointerEvents: "none",
+      color: "inherit", // наследуем цвет от родителя (h2)
     });
 
     // клонируем src, чтобы сохранить HTML и class/inline-styles
     a = src.cloneNode(true);
-    a.classList.add('marquee__item');
+    a.classList.add("marquee__item");
 
-    spacer = document.createElement('span');
-    spacer.className = 'marquee__spacer';
+    spacer = document.createElement("span");
+    spacer.className = "marquee__spacer";
     Object.assign(spacer.style, {
-      display: 'inline-block',
+      display: "inline-block",
       width: `${gap}px`,
       minWidth: `${gap}px`,
-      flex: '0 0 auto',
-      boxSizing: 'content-box'
+      flex: "0 0 auto",
+      boxSizing: "content-box",
     });
 
     b = a.cloneNode(true);
-    b.classList.add('marquee__item');
+    b.classList.add("marquee__item");
 
     wrap.appendChild(a);
     wrap.appendChild(spacer);
@@ -89,14 +93,19 @@ export function initMarquee(el, opts = {}) {
     createWrapIfNeeded();
     if (!wrap.parentNode) {
       // скрываем оригинал визуально, но оставляем его в DOM для доступности
-      src.style.visibility = 'hidden';
+      src.style.visibility = "hidden";
+      // нужен position: relative на el для абсолютного позиционирования wrap
+      const pos = window.getComputedStyle(el).position;
+      if (pos !== "relative" && pos !== "absolute" && pos !== "fixed") {
+        el.style.position = "relative";
+      }
       el.appendChild(wrap);
     }
   }
 
   function unmountWrap() {
     if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
-    if (src) src.style.visibility = '';
+    if (src) src.style.visibility = "";
   }
 
   function measure() {
@@ -115,13 +124,17 @@ export function initMarquee(el, opts = {}) {
       wrap.getBoundingClientRect(); // force layout
       const ra = a.getBoundingClientRect();
       single = Math.ceil(ra.width || 0);
-      spacerWidth = spacer ? Math.ceil(spacer.getBoundingClientRect().width || 0) : gap;
+      spacerWidth = spacer
+        ? Math.ceil(spacer.getBoundingClientRect().width || 0)
+        : gap;
     }
 
     cycle = single + spacerWidth;
 
     if (debug) {
-      try { window.__marquee_last = { visible, single, spacerWidth, cycle, gap }; } catch (e) {}
+      try {
+        window.__marquee_last = { visible, single, spacerWidth, cycle, gap };
+      } catch (e) {}
     }
 
     if (single <= visible) {
@@ -163,14 +176,17 @@ export function initMarquee(el, opts = {}) {
     if (raf) cancelAnimationFrame(raf);
     raf = null;
     lastTs = 0;
-    if (wrap) wrap.style.transform = 'translateX(0px)';
+    if (wrap) wrap.style.transform = "translateX(0px)";
   }
 
   // hover pause
   const onEnter = () => (paused = true);
-  const onLeave = () => { paused = false; lastTs = 0; };
-  el.addEventListener('mouseenter', onEnter);
-  el.addEventListener('mouseleave', onLeave);
+  const onLeave = () => {
+    paused = false;
+    lastTs = 0;
+  };
+  el.addEventListener("mouseenter", onEnter);
+  el.addEventListener("mouseleave", onLeave);
 
   // scheduleMeasure
   let measureQueued = false;
@@ -178,21 +194,31 @@ export function initMarquee(el, opts = {}) {
     if (measureQueued) return;
     measureQueued = true;
     if (doubleRAF) {
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        measureQueued = false;
-        if (measure()) start(); else stop();
-      }));
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          measureQueued = false;
+          if (measure()) start();
+          else stop();
+        }),
+      );
     } else {
       requestAnimationFrame(() => {
         measureQueued = false;
-        if (measure()) start(); else stop();
+        if (measure()) start();
+        else stop();
       });
     }
   }
 
   // ResizeObserver
-  const ro = (typeof ResizeObserver !== 'undefined') ? new ResizeObserver(() => scheduleMeasure()) : null;
-  if (ro) { ro.observe(el); ro.observe(src); }
+  const ro =
+    typeof ResizeObserver !== "undefined"
+      ? new ResizeObserver(() => scheduleMeasure())
+      : null;
+  if (ro) {
+    ro.observe(el);
+    ro.observe(src);
+  }
 
   // MutationObserver — обновляем клоны и реизмеряем при смене текста
   const mo = new MutationObserver(() => {
@@ -202,15 +228,15 @@ export function initMarquee(el, opts = {}) {
       b.innerHTML = newHTML;
     }
     // сохранить наследование цвета (если поменялось)
-    if (wrap) wrap.style.color = 'inherit';
+    if (wrap) wrap.style.color = "inherit";
     scheduleMeasure();
   });
   mo.observe(src, { childList: true, characterData: true, subtree: true });
 
   // картинки
-  const imgs = Array.from(el.querySelectorAll('img'));
-  imgs.forEach(img => {
-    if (!img.complete) img.addEventListener('load', () => scheduleMeasure());
+  const imgs = Array.from(el.querySelectorAll("img"));
+  imgs.forEach((img) => {
+    if (!img.complete) img.addEventListener("load", () => scheduleMeasure());
   });
 
   // initial
@@ -220,8 +246,8 @@ export function initMarquee(el, opts = {}) {
     stop();
     if (ro) ro.disconnect();
     mo.disconnect();
-    el.removeEventListener('mouseenter', onEnter);
-    el.removeEventListener('mouseleave', onLeave);
+    el.removeEventListener("mouseenter", onEnter);
+    el.removeEventListener("mouseleave", onLeave);
     unmountWrap();
 
     // если мы создали src — вернём содержимое обратно и удалим span
@@ -231,6 +257,8 @@ export function initMarquee(el, opts = {}) {
     }
 
     wrap = a = b = spacer = null;
-    try { if (debug) delete window.__marquee_last; } catch (e) {}
+    try {
+      if (debug) delete window.__marquee_last;
+    } catch (e) {}
   };
 }

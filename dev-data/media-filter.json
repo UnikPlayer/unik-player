@@ -1,0 +1,16 @@
+{
+  "mode": "allowOnly",
+  "sources": [
+    "me.umnikone.yaamp",
+    "ru.yandex.desktop.music",
+    "com.github.th-ch.youtube-music"
+  ],
+  "seenSources": [
+    "com.github.th-ch.youtube-music",
+    "308046B0AF4A39CB",
+    "Telegram.TelegramDesktop",
+    "me.umnikone.yaamp",
+    "ru.yandex.desktop.music",
+    "mpv.exe"
+  ]
+}

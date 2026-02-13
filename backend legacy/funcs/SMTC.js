@@ -2,6 +2,7 @@
 const { SMTCMonitor } = require('@coooookies/windows-smtc-monitor');
 const { startWebSocketServer, broadcastMediaData } = require('./ws.js');
 const { characterCheck } = require('./charCheck.js');
+const { addSeenSource, shouldAllowSource } = require('./mediaFilter');
 
 // --- helper ---
 function mkFingerprint(session) {
@@ -94,7 +95,29 @@ function SMTCListener() {
         .filter(s => s.timeline && s.timeline.duration && s.timeline.duration > 0);
 
       if (active.length > 0) {
-        const session = active[0];
+        // Ищем первую сессию, которая проходит фильтр
+        let session = null;
+        for (const s of active) {
+          const appId = (s.sourceAppId || s.appId || '').trim();
+          // Сохраняем все увиденные источники
+          addSeenSource(appId);
+          // Проверяем фильтр
+          if (shouldAllowSource(appId)) {
+            session = s;
+            break;
+          }
+        }
+
+        if (!session) {
+          // Все активные сессии заблокированы фильтром
+          if (lastFingerprint !== null) {
+            broadcastMediaData(null);
+            lastFingerprint = null;
+            lastSentHadThumbnail = false;
+          }
+          return;
+        }
+
         const fp = mkFingerprint(session);
 
         // если трек поменялся или мы раньше не слали ничего — отсылаем

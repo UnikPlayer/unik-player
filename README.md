@@ -164,26 +164,25 @@ npm run dev
 
 ---
 
-## Сборка
-
-Полная сборка до установщика:
+## Полная сборка до установщика:
 
 npm run build:all
 
-# 1. Frontend
+# 1. Сборка Frontend
+```
 cd frontend && npm run build && cd ..
-
-# 2. C# Backend (publish self-contained single-file)
+```
+# 2. Сборка C# Backend
+```
 cd backend-csharp/UnikPlayer
 dotnet publish -c Release
 cd ../..
-
-# 3. NSIS Installer
+```
+# 3. Сборка инсталлера NSIS Installer
+```
 makensis projBuild/installer.nsi
-
-
+```
 ### 1. Сборка Frontend
-
 ```bash
 cd frontend
 npm run build
@@ -191,69 +190,12 @@ npm run build
 Результат: статические файлы в папке `frontBuild/`
 
 ### 2. Сборка Backend (Release)
-
 ```bash
 cd backend-csharp/UnikPlayer
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
 Результат: `bin/Release/net9.0-windows10.0.17763.0/win-x64/publish/UnikPlayer.exe`
 
-### 3. Полная сборка (EXE)
-
-```bash
-# 1. Собрать фронтенд
-cd frontend
-npm run build
-
-# 2. Собрать backend
-cd ../backend-csharp/UnikPlayer
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
-
-# 3. Скопировать frontBuild рядом с exe
-```
-
-Финальная структура для распространения:
-```
-UnikPlayer/
-├── UnikPlayer.exe
-├── icon.ico (опционально)
-└── frontBuild/
-    ├── index.html
-    └── ...
-```
-
-### 4. Создание установщика (Inno Setup)
-
-1. Скачать [Inno Setup](https://jrsoftware.org/isinfo.php)
-2. Использовать скрипт `projBuild/installer.iss` (если есть) или создать свой:
-
-```iss
-[Setup]
-AppName=UnikPlayer
-AppVersion=0.7.0
-DefaultDirName={autopf}\UnikPlayer
-DefaultGroupName=UnikPlayer
-OutputDir=output
-OutputBaseFilename=UnikPlayer-Setup
-Compression=lzma2
-SolidCompression=yes
-
-[Files]
-Source: "UnikPlayer.exe"; DestDir: "{app}"
-Source: "icon.ico"; DestDir: "{app}"; Flags: ignoreversion
-Source: "frontBuild\*"; DestDir: "{app}\frontBuild"; Flags: recursesubdirs
-
-[Icons]
-Name: "{group}\UnikPlayer"; Filename: "{app}\UnikPlayer.exe"
-Name: "{autodesktop}\UnikPlayer"; Filename: "{app}\UnikPlayer.exe"
-
-[Run]
-Filename: "{app}\UnikPlayer.exe"; Flags: nowait postinstall skipifsilent
-```
-
-3. Скомпилировать скрипт в Inno Setup → получится `UnikPlayer-Setup.exe`
-
----
 
 ## Технологии
 
@@ -292,3 +234,7 @@ unikPlayer/
 ## Лицензия
 
 This project is open source and available under the [WTFPL](https://www.wtfpl.net/).
+
+## Оффтоп
+
+Работал над этим проектом исключительно потому, что не нашел плеера для себя. мне не нравились дизайны, которые уже есть и к тому же, они все работали лишь на одно приложение(только на ютуб музыку, только на браузер, только на спотифай). я хотел сделать ОДНУ программу, которая будет позволять захватывать звук с любого приложения и показывать его на стриме. чтобы дизайн можно было настроить для себя, под свои хотелки, А У КАЖДОГО ОНИ СВОИ! вы прикиньте? тематика стримов у всех разная и то, что сейчас есть на рынке плееров явно не будет нормально подходить под нужны каждого. Надеюсь, этот плеер и его идея понравится кому то кроме меня в комунити =D. буду рад, если поможете мне еще распространить. 

@@ -22,16 +22,150 @@ class Program
     private static string? _lastFingerprint;
     private static string? _lastSentJson;
     private static DateTime _lastSentTime = DateTime.MinValue;
+    private static double _lastSentPosition = 0;  // Last sent timeline position
     private static string? _activeSessionId;  // ID последней активной сессии
+    private static double _knownPosition = 0;      // Позиция из SMTC при последнем обновлении
+    private static DateTime _knownPositionTime = DateTime.MinValue;  // Когда получили эту позицию
+    private static double _knownDuration = 0;      // Длительность трека
     private static readonly int DEBOUNCE_MS = 300;
+    private static readonly double POSITION_THRESHOLD = 2.0;  // Send update if position differs by more than 2 seconds
     private static readonly int HTTP_PORT = 27272;
     private static readonly int WS_PORT = 62727;
+    private static System.Threading.Timer? _positionTimer;  // Timer for sending position every second
 
     // Data paths - initialized in Main based on DEV_MODE
     private static string STYLES_DIR = "";
     private static string STYLES_FILE = "";
     private static string CSS_DIR = "";
+    private static string CUSTOM_PLAYERS_DIR = "";
     private static bool DEV_MODE = false;
+
+    // Media filter
+    private static string MEDIA_FILTER_FILE = "";
+    private static MediaFilterConfig _mediaFilter = new();
+    private static readonly object _filterLock = new();
+
+    class MediaFilterConfig
+    {
+        public string mode { get; set; } = "allowAll";
+        public List<string> sources { get; set; } = new();
+        public List<string> seenSources { get; set; } = new();
+    }
+
+    static MediaFilterConfig LoadMediaFilter()
+    {
+        lock (_filterLock)
+        {
+            try
+            {
+                if (File.Exists(MEDIA_FILTER_FILE))
+                {
+                    var json = File.ReadAllText(MEDIA_FILTER_FILE);
+                    var config = JsonSerializer.Deserialize<MediaFilterConfig>(json);
+                    if (config != null)
+                    {
+                        _mediaFilter = config;
+                        return _mediaFilter;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MediaFilter] Load error: {ex.Message}");
+            }
+            _mediaFilter = new MediaFilterConfig();
+            return _mediaFilter;
+        }
+    }
+
+    static bool SaveMediaFilter(MediaFilterConfig config)
+    {
+        lock (_filterLock)
+        {
+            try
+            {
+                Directory.CreateDirectory(STYLES_DIR);
+                _mediaFilter = config;
+                var json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(MEDIA_FILTER_FILE, json);
+                Console.WriteLine("[MediaFilter] Config saved");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MediaFilter] Save error: {ex.Message}");
+                return false;
+            }
+        }
+    }
+
+    static void AddSeenSource(string sourceAppId)
+    {
+        if (string.IsNullOrWhiteSpace(sourceAppId)) return;
+
+        lock (_filterLock)
+        {
+            if (!_mediaFilter.seenSources.Contains(sourceAppId))
+            {
+                _mediaFilter.seenSources.Add(sourceAppId);
+                SaveMediaFilter(_mediaFilter);
+                Console.WriteLine($"[MediaFilter] New source seen: {sourceAppId}");
+            }
+        }
+    }
+
+    static bool ShouldAllowSource(string sourceAppId)
+    {
+        lock (_filterLock)
+        {
+            return _mediaFilter.mode switch
+            {
+                "allowOnly" => _mediaFilter.sources.Contains(sourceAppId),
+                "blockOnly" => !_mediaFilter.sources.Contains(sourceAppId),
+                _ => true // allowAll
+            };
+        }
+    }
+
+    /// <summary>
+    /// Get display name for app from SourceAppUserModelId
+    /// </summary>
+    static string GetAppDisplayName(string appId)
+    {
+        if (string.IsNullOrEmpty(appId)) return "Unknown";
+
+        try
+        {
+            // Handle exe path: "C:\...\Spotify.exe" -> "Spotify"
+            if (appId.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            {
+                var name = Path.GetFileNameWithoutExtension(appId);
+                if (!string.IsNullOrEmpty(name))
+                    return name;
+            }
+
+            // Handle AUMID: "Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic" -> "ZuneMusic"
+            if (appId.Contains('!'))
+            {
+                var afterBang = appId.Split('!').Last();
+                var cleanName = afterBang.Replace("Microsoft.", "");
+                if (!string.IsNullOrEmpty(cleanName))
+                    return cleanName;
+            }
+
+            // Handle package name: "Something_hash!App" or partial
+            if (appId.Contains('_'))
+            {
+                var beforeUnderscore = appId.Split('_')[0];
+                var cleanName = beforeUnderscore.Replace("Microsoft.", "");
+                if (!string.IsNullOrEmpty(cleanName))
+                    return cleanName;
+            }
+        }
+        catch { }
+
+        return appId;
+    }
 
     /// <summary>
     /// Load .env file and return dictionary of key-value pairs
@@ -108,11 +242,257 @@ class Program
 
         STYLES_FILE = Path.Combine(STYLES_DIR, "player-styles.json");
         CSS_DIR = Path.Combine(STYLES_DIR, "css");
+        CUSTOM_PLAYERS_DIR = Path.Combine(STYLES_DIR, "custom");
+        MEDIA_FILTER_FILE = Path.Combine(STYLES_DIR, "media-filter.json");
 
         // Ensure directories exist
         Directory.CreateDirectory(STYLES_DIR);
         Directory.CreateDirectory(CSS_DIR);
+        Directory.CreateDirectory(CUSTOM_PLAYERS_DIR);
+
+        // Load media filter config
+        LoadMediaFilter();
+
+        // Install example players on first run
+        InstallExamplePlayers();
     }
+
+    /// <summary>
+    /// Install bundled example players (only those that don't exist yet)
+    /// </summary>
+    static void InstallExamplePlayers()
+    {
+        try
+        {
+            int installed = 0;
+            foreach (var example in EXAMPLE_PLAYERS)
+            {
+                var htmlPath = Path.Combine(CUSTOM_PLAYERS_DIR, $"{example.Key}.html");
+                if (File.Exists(htmlPath))
+                {
+                    continue; // Don't overwrite user's file
+                }
+
+                var backupPath = Path.Combine(CUSTOM_PLAYERS_DIR, $"{example.Key}.backup.html");
+                File.WriteAllText(htmlPath, example.Value);
+                File.WriteAllText(backupPath, example.Value);
+                Console.WriteLine($"[Examples] Installed: {example.Key}");
+                installed++;
+            }
+
+            if (installed > 0)
+                Console.WriteLine($"[Examples] Installed {installed} new example players");
+            else
+                Console.WriteLine($"[Examples] All examples already present");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Examples] Failed to install examples: {ex.Message}");
+        }
+    }
+
+    // Bundled example players
+    static readonly Dictionary<string, string> EXAMPLE_PLAYERS = new()
+    {
+        ["ProgressBar"] = @"<!DOCTYPE html>
+<html lang=""en"">
+<head>
+  <meta charset=""UTF-8"">
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+  <title>Custom Player with Progress</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: ""Rubik"", sans-serif; background: transparent; }
+    .player {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.5rem;
+      background: var(--darkMuted);
+      border: 2px solid var(--vibrant);
+      border-radius: 0.5rem;
+      width: 22rem;
+    }
+    .thumbnail {
+      width: 3.5rem;
+      height: 3.5rem;
+      border-radius: 0.35rem;
+      object-fit: cover;
+      border: 2px solid var(--lightMuted);
+      flex-shrink: 0;
+    }
+    .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+    .title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--lightVibrant);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .artist {
+      font-size: 0.75rem;
+      color: var(--lightVibrant);
+      opacity: 0.6;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .progress-container { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.2rem; }
+    .time { font-size: 0.6rem; color: var(--lightVibrant); opacity: 0.5; min-width: 2rem; }
+    .time.total { text-align: right; }
+    .progress-bar {
+      flex: 1;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--vibrant), var(--lightVibrant));
+      border-radius: 2px;
+      transition: width 0.5s linear;
+    }
+  </style>
+</head>
+<body>
+<div class=""player"">
+  <img class=""thumbnail"" src=""{{thumbnail}}"" alt="""">
+  <div class=""info"">
+    <div class=""title"">{{title}}</div>
+    <div class=""artist"">{{artist}}</div>
+    <div class=""progress-container"">
+      <span class=""time"" data-bind=""currentTime"">0:00</span>
+      <div class=""progress-bar"">
+        <div class=""progress-fill"" data-bind=""progress-width""></div>
+      </div>
+      <span class=""time total"" data-bind=""totalTime"">0:00</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>"
+        ,
+        ["Showcase"] = @"<!DOCTYPE html>
+<html lang=""en"">
+<head>
+  <meta charset=""UTF-8"">
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+  <title>Showcase Player</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: transparent; }
+
+    .card {
+      position: relative;
+      width: 20rem;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      background: var(--darkMuted);
+      border: 1px solid var(--muted);
+      box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    }
+
+    .art {
+      position: relative;
+      width: 100%;
+      height: 8rem;
+      overflow: hidden;
+    }
+    .art img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .art::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 50%;
+      background: linear-gradient(transparent, var(--darkMuted));
+    }
+
+    .body { padding: 0.6rem 0.8rem 0.5rem; }
+
+    .title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--lightVibrant);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .artist {
+      font-size: 0.75rem;
+      color: var(--lightVibrant);
+      opacity: 0.6;
+      margin-top: 0.1rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bar-wrap {
+      margin-top: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .time {
+      font-size: 0.55rem;
+      color: var(--lightVibrant);
+      opacity: 0.5;
+      min-width: 2rem;
+    }
+    .time.end { text-align: right; }
+    .bar {
+      flex: 1;
+      height: 3px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--vibrant), var(--lightVibrant));
+      border-radius: 2px;
+      transition: width 0.5s linear;
+    }
+
+    .status {
+      margin-top: 0.35rem;
+      font-size: 0.5rem;
+      color: var(--vibrant);
+      opacity: 0.7;
+      letter-spacing: 0.1em;
+    }
+    .status[data-playing=""true""]::before { content: 'NOW PLAYING'; }
+    .status[data-playing=""false""]::before { content: 'PAUSED'; }
+  </style>
+</head>
+<body>
+<div class=""card"">
+  <div class=""art"">
+    <img src=""{{thumbnail}}"" alt="""">
+  </div>
+  <div class=""body"">
+    <div class=""title"">{{title}}</div>
+    <div class=""artist"">{{artist}}</div>
+    <div class=""bar-wrap"">
+      <span class=""time"" data-bind=""currentTime"">0:00</span>
+      <div class=""bar""><div class=""fill"" data-bind=""progress-width""></div></div>
+      <span class=""time end"" data-bind=""totalTime"">0:00</span>
+    </div>
+    <div class=""status"" data-bind=""playing"" data-playing=""false""></div>
+  </div>
+</div>
+</body>
+</html>"
+    };
 
     [STAThread]
     static void Main(string[] args)
@@ -321,19 +701,40 @@ class Program
 
             if (playback.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
             {
+                // Track source
+                AddSeenSource(session.Id ?? "");
+
+                // Check filter before making active
+                if (!ShouldAllowSource(session.Id ?? ""))
+                {
+                    return;
+                }
+
                 // Сессия начала играть - делаем её активной
                 _activeSessionId = session.Id;
                 Console.WriteLine($"[SMTC] Активная сессия: {session.Id}");
+
+                // Stop old timer first — SendMediaUpdate will set correct position data
+                StopPositionTimer();
                 await SendMediaUpdate(session);
+                // Now _knownPosition/_knownDuration are correct — start timer
+                StartPositionTimer();
             }
-            else
+            else if (_activeSessionId == session.Id)
             {
-                // Сессия остановилась
-                if (_activeSessionId == session.Id)
-                {
-                    // Это была активная сессия - ищем другую играющую
-                    await FindAndSendPlayingSession();
-                }
+                // Активная сессия не Playing - останавливаем таймер и ищем другую
+                StopPositionTimer();
+                SendPlaybackUpdate(session);
+                await FindAndSendPlayingSession();
+            }
+        };
+
+        // Timeline changes (seek)
+        _mediaManager.OnAnyTimelinePropertyChanged += async (session, args) =>
+        {
+            if (_activeSessionId == session.Id)
+            {
+                SendTimelineUpdate(session);
             }
         };
 
@@ -344,7 +745,9 @@ class Program
             if (playback.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
             {
                 _activeSessionId = session.Id;
+                StopPositionTimer();
                 await SendMediaUpdate(session);
+                StartPositionTimer();
             }
         };
 
@@ -352,6 +755,7 @@ class Program
         {
             if (_activeSessionId == session.Id)
             {
+                StopPositionTimer();
                 _activeSessionId = null;
                 await FindAndSendPlayingSession();
             }
@@ -365,7 +769,16 @@ class Program
     {
         if (_mediaManager == null) return;
 
-        // Ищем любую сессию со статусом Playing
+        // Проверяем, разрешён ли текущий активный источник
+        if (_activeSessionId != null && !ShouldAllowSource(_activeSessionId))
+        {
+            Console.WriteLine($"[SMTC] Активный источник {_activeSessionId} теперь заблокирован");
+            _activeSessionId = null;
+            _lastFingerprint = null;
+            _lastSentJson = null;
+        }
+
+        // Ищем любую сессию со статусом Playing (с учётом фильтра)
         foreach (var session in _mediaManager.CurrentMediaSessions.Values)
         {
             try
@@ -373,32 +786,78 @@ class Program
                 var playback = session.ControlSession.GetPlaybackInfo();
                 if (playback.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
                 {
+                    var sourceId = session.Id ?? "";
+                    AddSeenSource(sourceId);
+
+                    if (!ShouldAllowSource(sourceId))
+                        continue;
+
                     _activeSessionId = session.Id;
+                    StopPositionTimer();
                     await SendMediaUpdate(session);
+                    StartPositionTimer();
                     return;
                 }
             }
             catch { }
         }
 
-        // Нет играющих сессий - отправляем null и скрываем
+        // Нет Playing сессий - ждём немного (может быть смена трека)
+        await Task.Delay(300);
+
+        // Проверяем ещё раз - может появилась Playing сессия
+        foreach (var session in _mediaManager.CurrentMediaSessions.Values)
+        {
+            try
+            {
+                var playback = session.ControlSession.GetPlaybackInfo();
+                if (playback.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
+                {
+                    var sourceId = session.Id ?? "";
+                    if (ShouldAllowSource(sourceId))
+                    {
+                        // Нашли Playing - не скрываем, SendMediaUpdate вызовется из события
+                        return;
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // После задержки всё ещё нет Playing - скрываем
         _activeSessionId = null;
         _lastFingerprint = null;
         _lastSentJson = null;
         BroadcastMessage(JsonSerializer.Serialize(new { media = (object?)null }));
-        Console.WriteLine("[SMTC] Нет активных сессий - скрываем плеер");
+        Console.WriteLine("[SMTC] Нет Playing сессий - скрываем плеер");
     }
 
-    static async Task SendMediaUpdate(MediaManager.MediaSession session)
+    static async Task SendMediaUpdate(MediaManager.MediaSession session, int retryCount = 0)
     {
-        const int RETRY_DELAY_MS = 500;
-
+        const int RETRY_DELAY_MS = 200;
+        const int MAX_RETRIES = 2;  // 2 * 200ms = 400ms max для картинки
         try
         {
+            // Track seen source and check filter
+            var sourceId = session.Id ?? "";
+            AddSeenSource(sourceId);
+
+            if (!ShouldAllowSource(sourceId))
+            {
+                // Source is filtered out — clear active and let caller handle
+                if (_activeSessionId == session.Id)
+                {
+                    _activeSessionId = null;
+                }
+                return;
+            }
+
             var playback = session.ControlSession.GetPlaybackInfo();
 
+            // Если статус не Playing - выходим (FindAndSendPlayingSession найдёт Playing сессию)
             if (playback.PlaybackStatus != GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
             {
+                Console.WriteLine($"[SMTC] Status != Playing ({playback.PlaybackStatus}), пропускаем");
                 return;
             }
 
@@ -408,14 +867,16 @@ class Program
             var title = mediaProps.Title ?? "";
             var artist = mediaProps.Artist ?? "";
 
-            if (string.IsNullOrEmpty(title) || string.IsNullOrEmpty(artist))
+            // Если совсем нет данных - пропускаем
+            if (string.IsNullOrEmpty(title) && string.IsNullOrEmpty(artist))
             {
-                // Нет title или artist - пробуем ещё раз
-                Console.WriteLine($"[SMTC] Нет title/artist, retry...");
-                await Task.Delay(RETRY_DELAY_MS);
-                await SendMediaUpdate(session);
+                Console.WriteLine($"[SMTC] Нет title/artist, пропускаем");
                 return;
             }
+
+            // Заполняем пустые поля
+            if (string.IsNullOrEmpty(title)) title = "Unknown";
+            if (string.IsNullOrEmpty(artist)) artist = "Unknown";
 
             // Get thumbnail
             byte[]? thumbnailData = null;
@@ -432,27 +893,48 @@ class Program
                 catch { }
             }
 
-            // Если нет thumbnail - пробуем ещё раз
-            if (thumbnailData == null)
+            // Если нет thumbnail - retry до 1.5 секунд
+            if (thumbnailData == null && retryCount < MAX_RETRIES)
             {
-                // Проверяем что сессия всё ещё активна и играет
-                var currentPlayback = session.ControlSession.GetPlaybackInfo();
-                if (currentPlayback.PlaybackStatus != GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
-                {
-                    return;
-                }
-
-                Console.WriteLine($"[SMTC] Нет thumbnail для {artist} - {title}, retry...");
+                Console.WriteLine($"[SMTC] Нет thumbnail для {artist} - {title}, retry {retryCount + 1}/{MAX_RETRIES}...");
                 await Task.Delay(RETRY_DELAY_MS);
-                await SendMediaUpdate(session);
+                await SendMediaUpdate(session, retryCount + 1);
                 return;
             }
 
-            var fingerprint = $"{session.Id}||{title}||{artist}";
+            // После retry показываем с заглушкой
+            if (thumbnailData == null)
+            {
+                Console.WriteLine($"[SMTC] Нет thumbnail после {MAX_RETRIES} попыток, показываем с заглушкой");
+            }
 
-            // Debounce: skip if same fingerprint and too soon
+            var fingerprint = $"{session.Id}||{title}||{artist}";
+            var isNewTrack = fingerprint != _lastFingerprint;
+
+            // Get timeline info (position, duration)
+            var timelineProps = session.ControlSession.GetTimelineProperties();
+            var playbackInfo = session.ControlSession.GetPlaybackInfo();
+            var currentPosition = timelineProps.Position.TotalSeconds;
+            var duration = timelineProps.EndTime.TotalSeconds;
+
+            // Сохраняем для таймера
+            _knownPosition = currentPosition;
+            _knownPositionTime = DateTime.Now;
+            _knownDuration = duration;
+
+            // Reset position to 0 for new track
+            if (isNewTrack)
+            {
+                _lastSentPosition = 0;
+            }
+
+            // Check if position changed significantly (> 2 seconds = seek)
+            var positionDiff = Math.Abs(currentPosition - _lastSentPosition);
+            var positionChanged = positionDiff > POSITION_THRESHOLD;
+
+            // Debounce: skip if same fingerprint, position hasn't changed much, and too soon
             var now = DateTime.Now;
-            if (fingerprint == _lastFingerprint && (now - _lastSentTime).TotalMilliseconds < DEBOUNCE_MS)
+            if (!isNewTrack && !positionChanged && (now - _lastSentTime).TotalMilliseconds < DEBOUNCE_MS)
             {
                 return;
             }
@@ -463,23 +945,62 @@ class Program
                 {
                     title,
                     artist,
-                    thumbnail = new { data = thumbnailData }
+                    thumbnail = thumbnailData != null ? new { data = thumbnailData } : null
+                },
+                timeline = new
+                {
+                    position = currentPosition,
+                    duration = duration
+                },
+                playback = new
+                {
+                    playbackStatus = (int)playbackInfo.PlaybackStatus
                 }
             };
 
             var json = JsonSerializer.Serialize(data);
 
-            // Skip if exact same JSON
-            if (json == _lastSentJson)
+            // Skip if exact same JSON (unless position changed significantly or new track)
+            if (json == _lastSentJson && !positionChanged && !isNewTrack)
             {
                 return;
             }
 
+            var isSeek = positionChanged && !isNewTrack;
+
             _lastFingerprint = fingerprint;
             _lastSentJson = json;
             _lastSentTime = now;
+            _lastSentPosition = currentPosition;
             BroadcastMessage(json);
-            Console.WriteLine($"[SMTC] {artist} - {title}");
+
+            if (isNewTrack)
+            {
+                Console.WriteLine($"[SMTC] NEW: {artist} - {title} (duration: {duration:F0}s)");
+
+                // SMTC often sends duration=0 on first event, resend after 1 second to get correct duration
+                if (duration <= 0)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(1000);
+                        // Check if still the same track
+                        if (_lastFingerprint == fingerprint)
+                        {
+                            Console.WriteLine($"[SMTC] Resending for duration update...");
+                            await SendMediaUpdate(session);
+                        }
+                    });
+                }
+            }
+            else if (isSeek)
+            {
+                Console.WriteLine($"[SMTC] {artist} - {title} (seek to {currentPosition:F0}s)");
+            }
+            else
+            {
+                Console.WriteLine($"[SMTC] {artist} - {title}");
+            }
         }
         catch (Exception ex)
         {
@@ -487,36 +1008,175 @@ class Program
         }
     }
 
+    static void SendPlaybackUpdate(MediaManager.MediaSession session)
+    {
+        try
+        {
+            var playback = session.ControlSession.GetPlaybackInfo();
+            var timelineProps = session.ControlSession.GetTimelineProperties();
+            var currentPosition = timelineProps.Position.TotalSeconds;
+
+            // Обновляем базу (пауза — фиксируем текущую позицию)
+            _knownPosition = currentPosition;
+            _knownPositionTime = DateTime.Now;
+
+            var data = new
+            {
+                timeline = new
+                {
+                    position = currentPosition,
+                    duration = timelineProps.EndTime.TotalSeconds
+                },
+                playback = new
+                {
+                    playbackStatus = (int)playback.PlaybackStatus
+                }
+            };
+
+            var json = JsonSerializer.Serialize(data);
+            _lastSentPosition = currentPosition;
+            BroadcastMessage(json);
+            Console.WriteLine($"[SMTC] Playback status: {playback.PlaybackStatus}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SMTC] Playback update error: {ex.Message}");
+        }
+    }
+
+    static void SendTimelineUpdate(MediaManager.MediaSession session)
+    {
+        try
+        {
+            var playback = session.ControlSession.GetPlaybackInfo();
+            var timelineProps = session.ControlSession.GetTimelineProperties();
+            var currentPosition = timelineProps.Position.TotalSeconds;
+            var newDuration = timelineProps.EndTime.TotalSeconds;
+
+            // Всегда обновляем duration (меняется при смене трека)
+            var durationChanged = Math.Abs(newDuration - _knownDuration) > 0.5;
+            _knownDuration = newDuration;
+
+            // Check if position changed significantly (> 2 seconds = seek)
+            var positionDiff = Math.Abs(currentPosition - _lastSentPosition);
+            if (positionDiff <= POSITION_THRESHOLD && !durationChanged)
+            {
+                return;
+            }
+
+            // Обновляем базу для таймера (seek или смена длительности)
+            _knownPosition = currentPosition;
+            _knownPositionTime = DateTime.Now;
+
+            var data = new
+            {
+                timeline = new
+                {
+                    position = currentPosition,
+                    duration = newDuration
+                },
+                playback = new
+                {
+                    playbackStatus = (int)playback.PlaybackStatus
+                }
+            };
+
+            var json = JsonSerializer.Serialize(data);
+            _lastSentPosition = currentPosition;
+            BroadcastMessage(json);
+            Console.WriteLine($"[SMTC] Timeline: {currentPosition:F0}s / {newDuration:F0}s{(durationChanged ? " (duration changed)" : " (seek)")}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SMTC] Timeline update error: {ex.Message}");
+        }
+    }
+
+    // Запускает таймер отправки позиции каждую секунду
+    static void StartPositionTimer()
+    {
+        StopPositionTimer();
+        _positionTimer = new System.Threading.Timer(_ =>
+        {
+            try
+            {
+                if (_activeSessionId == null || _mediaManager == null) return;
+                if (_knownDuration <= 0) return;
+
+                // Считаем позицию сами: basePosition + elapsed
+                var elapsed = (DateTime.Now - _knownPositionTime).TotalSeconds;
+                var currentPosition = Math.Min(_knownPosition + elapsed, _knownDuration);
+
+                var data = new
+                {
+                    timeline = new
+                    {
+                        position = Math.Floor(currentPosition),
+                        duration = _knownDuration
+                    },
+                    playback = new
+                    {
+                        playbackStatus = 4 // Playing
+                    }
+                };
+
+                var json = JsonSerializer.Serialize(data);
+                _lastSentPosition = currentPosition;
+                BroadcastMessage(json);
+            }
+            catch { }
+        }, null, 1000, 1000);
+    }
+
+    // Останавливает таймер позиции
+    static void StopPositionTimer()
+    {
+        _positionTimer?.Dispose();
+        _positionTimer = null;
+    }
+
     static void BroadcastMessage(string message)
     {
         var buffer = Encoding.UTF8.GetBytes(message);
         var segment = new ArraySegment<byte>(buffer);
 
+        List<WebSocket> snapshot;
         lock (_lock)
         {
-            var deadClients = new List<WebSocket>();
-            foreach (var client in _clients)
+            snapshot = new List<WebSocket>(_clients);
+        }
+
+        var deadClients = new List<WebSocket>();
+        foreach (var client in snapshot)
+        {
+            try
             {
-                try
+                if (client.State == WebSocketState.Open)
                 {
-                    if (client.State == WebSocketState.Open)
-                    {
-                        client.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None).Wait();
-                    }
-                    else
-                    {
-                        deadClients.Add(client);
-                    }
+                    // Non-blocking send with 2s timeout
+                    using var cts = new CancellationTokenSource(2000);
+                    client.SendAsync(segment, WebSocketMessageType.Text, true, cts.Token).Wait();
                 }
-                catch
+                else
                 {
                     deadClients.Add(client);
                 }
             }
-
-            foreach (var dead in deadClients)
+            catch
             {
-                _clients.Remove(dead);
+                deadClients.Add(client);
+            }
+        }
+
+        if (deadClients.Count > 0)
+        {
+            lock (_lock)
+            {
+                foreach (var dead in deadClients)
+                {
+                    _clients.Remove(dead);
+                    try { dead.Dispose(); } catch { }
+                }
             }
         }
     }
@@ -550,19 +1210,25 @@ class Program
         }
     }
 
-    static async Task SendCurrentStateToClient(WebSocket ws)
+    static async Task SendCurrentStateToClient(WebSocket ws, int retryCount = 0)
     {
-        const int RETRY_DELAY_MS = 500;
+        const int RETRY_DELAY_MS = 300;
+        const int MAX_RETRIES = 2;
 
         if (_mediaManager == null) return;
 
-        // Ищем играющую сессию
+        // Ищем играющую сессию (с учётом фильтра)
         foreach (var session in _mediaManager.CurrentMediaSessions.Values)
         {
             try
             {
                 var playback = session.ControlSession.GetPlaybackInfo();
                 if (playback.PlaybackStatus != GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
+                    continue;
+
+                var sourceId = session.Id ?? "";
+                AddSeenSource(sourceId);
+                if (!ShouldAllowSource(sourceId))
                     continue;
 
                 var mediaProps = await session.ControlSession.TryGetMediaPropertiesAsync();
@@ -587,17 +1253,26 @@ class Program
                     catch { }
                 }
 
-                // Если нет thumbnail - retry бесконечно
-                if (thumbnailData == null)
+                // Если нет thumbnail - retry до MAX_RETRIES раз
+                if (thumbnailData == null && retryCount < MAX_RETRIES)
                 {
                     if (ws.State == WebSocketState.Open)
                     {
-                        Console.WriteLine($"[WS] Нет thumbnail для нового клиента, retry...");
+                        Console.WriteLine($"[WS] Нет thumbnail для нового клиента, retry {retryCount + 1}/{MAX_RETRIES}...");
                         await Task.Delay(RETRY_DELAY_MS);
-                        await SendCurrentStateToClient(ws);
+                        await SendCurrentStateToClient(ws, retryCount + 1);
                     }
                     return;
                 }
+
+                // После MAX_RETRIES показываем без картинки
+                if (thumbnailData == null)
+                {
+                    Console.WriteLine($"[WS] Нет thumbnail после {MAX_RETRIES} попыток, отправляем без картинки");
+                }
+
+                // Get timeline info
+                var timelineProps = session.ControlSession.GetTimelineProperties();
 
                 var data = new
                 {
@@ -605,7 +1280,16 @@ class Program
                     {
                         title,
                         artist,
-                        thumbnail = new { data = thumbnailData }
+                        thumbnail = thumbnailData != null ? new { data = thumbnailData } : null
+                    },
+                    timeline = new
+                    {
+                        position = timelineProps.Position.TotalSeconds,
+                        duration = timelineProps.EndTime.TotalSeconds
+                    },
+                    playback = new
+                    {
+                        playbackStatus = (int)playback.PlaybackStatus
                     }
                 };
 
@@ -616,7 +1300,7 @@ class Program
                 if (ws.State == WebSocketState.Open)
                 {
                     await ws.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
-                    Console.WriteLine($"[WS] Отправлено текущее состояние: {artist} - {title}");
+                    Console.WriteLine($"[WS] Отправлено текущее состояние: {artist} - {title} (pos: {timelineProps.Position.TotalSeconds:F0}s)");
                 }
                 return;
             }
@@ -626,12 +1310,16 @@ class Program
             }
         }
 
-        // Нет играющих сессий - retry бесконечно пока клиент подключен
-        if (ws.State == WebSocketState.Open)
+        // Нет играющих сессий - retry до MAX_RETRIES раз
+        if (ws.State == WebSocketState.Open && retryCount < MAX_RETRIES)
         {
-            Console.WriteLine($"[WS] Нет активных сессий для нового клиента, retry...");
+            Console.WriteLine($"[WS] Нет активных сессий для нового клиента, retry {retryCount + 1}/{MAX_RETRIES}...");
             await Task.Delay(RETRY_DELAY_MS);
-            await SendCurrentStateToClient(ws);
+            await SendCurrentStateToClient(ws, retryCount + 1);
+        }
+        else if (retryCount >= MAX_RETRIES)
+        {
+            Console.WriteLine($"[WS] Нет активных сессий после {MAX_RETRIES} попыток");
         }
     }
 
@@ -732,7 +1420,7 @@ class Program
 
         // CORS headers for dev mode
         response.Headers.Add("Access-Control-Allow-Origin", "*");
-        response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         response.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
 
         // Handle preflight
@@ -787,11 +1475,110 @@ class Program
             return;
         }
 
+        // API: DELETE /api/css/{playerName} - reset CSS (delete user customization)
+        if (path.StartsWith("/api/css/") && request.HttpMethod == "DELETE")
+        {
+            var playerName = path.Substring("/api/css/".Length);
+            await HandleDeleteCSS(playerName, response);
+            return;
+        }
+
         // API: GET /api/open-css/{playerName} - open CSS file in explorer
         if (path.StartsWith("/api/open-css/") && request.HttpMethod == "GET")
         {
             var playerName = path.Substring("/api/open-css/".Length);
             await HandleOpenCSS(playerName, response);
+            return;
+        }
+
+        // API: GET /api/open-html/{playerName} - open custom player HTML file in default editor
+        if (path.StartsWith("/api/open-html/") && request.HttpMethod == "GET")
+        {
+            var playerName = path.Substring("/api/open-html/".Length);
+            await HandleOpenHTML(playerName, response);
+            return;
+        }
+
+        // ========================================
+        // MEDIA FILTER API
+        // ========================================
+
+        // API: GET /api/media-filter
+        if (path == "/api/media-filter" && request.HttpMethod == "GET")
+        {
+            await HandleGetMediaFilter(response);
+            return;
+        }
+
+        // API: POST /api/media-filter
+        if (path == "/api/media-filter" && request.HttpMethod == "POST")
+        {
+            await HandlePostMediaFilter(request, response);
+            return;
+        }
+
+        // ========================================
+        // CUSTOM PLAYERS API
+        // ========================================
+
+        // API: GET /api/custom-players - list all custom players
+        if (path == "/api/custom-players" && request.HttpMethod == "GET")
+        {
+            await HandleGetCustomPlayers(response);
+            return;
+        }
+
+        // API: POST /api/custom-players - upload new custom player
+        if (path == "/api/custom-players" && request.HttpMethod == "POST")
+        {
+            await HandlePostCustomPlayer(request, response);
+            return;
+        }
+
+        // API: POST /api/custom-players/validate - validate HTML
+        if (path == "/api/custom-players/validate" && request.HttpMethod == "POST")
+        {
+            await HandleValidateCustomPlayer(request, response);
+            return;
+        }
+
+        // API: GET /api/custom-players/{name}/backup - get backup
+        if (path.StartsWith("/api/custom-players/") && path.EndsWith("/backup") && request.HttpMethod == "GET")
+        {
+            var name = path.Replace("/api/custom-players/", "").Replace("/backup", "");
+            await HandleGetCustomPlayerBackup(name, response);
+            return;
+        }
+
+        // API: POST /api/custom-players/{name}/reset - reset to backup
+        if (path.StartsWith("/api/custom-players/") && path.EndsWith("/reset") && request.HttpMethod == "POST")
+        {
+            var name = path.Replace("/api/custom-players/", "").Replace("/reset", "");
+            await HandleResetCustomPlayer(name, response);
+            return;
+        }
+
+        // API: GET /api/custom-players/{name} - get player HTML
+        if (path.StartsWith("/api/custom-players/") && request.HttpMethod == "GET")
+        {
+            var name = path.Substring("/api/custom-players/".Length);
+            await HandleGetCustomPlayer(name, response);
+            return;
+        }
+
+        // API: PUT /api/custom-players/{name} - update player HTML
+        if (path.StartsWith("/api/custom-players/") && request.HttpMethod == "PUT")
+        {
+            var name = path.Substring("/api/custom-players/".Length);
+            await HandleUpdateCustomPlayer(name, request, response);
+            return;
+        }
+
+        // API: DELETE /api/custom-players/{name} - delete player
+        if (path.StartsWith("/api/custom-players/") && request.HttpMethod == "DELETE")
+        {
+            var name = path.Substring("/api/custom-players/".Length);
+            await HandleDeleteCustomPlayer(name, response);
             return;
         }
 
@@ -1036,6 +1823,84 @@ class Program
         }
     }
 
+    static async Task HandleDeleteCSS(string playerName, HttpListenerResponse response)
+    {
+        try
+        {
+            playerName = Path.GetFileNameWithoutExtension(playerName);
+            var cssFile = Path.Combine(CSS_DIR, $"{playerName}.css");
+
+            if (File.Exists(cssFile))
+            {
+                File.Delete(cssFile);
+                Console.WriteLine($"[API] DELETE /api/css/{playerName} - file deleted");
+            }
+            else
+            {
+                Console.WriteLine($"[API] DELETE /api/css/{playerName} - no file to delete");
+            }
+
+            var result = Encoding.UTF8.GetBytes("{\"success\":true}");
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] DELETE /api/css error: {ex.Message}");
+            response.StatusCode = 500;
+            var result = Encoding.UTF8.GetBytes("{\"success\":false}");
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandleOpenHTML(string playerName, HttpListenerResponse response)
+    {
+        try
+        {
+            playerName = new string(playerName.Where(c => char.IsLetterOrDigit(c) || c == '_' || c == '-').ToArray());
+            var htmlFile = Path.Combine(CUSTOM_PLAYERS_DIR, $"{playerName}.html");
+
+            if (!File.Exists(htmlFile))
+            {
+                response.StatusCode = 404;
+                var err = Encoding.UTF8.GetBytes("{\"error\":\"File not found\"}");
+                response.ContentType = "application/json; charset=utf-8";
+                response.ContentLength64 = err.Length;
+                await response.OutputStream.WriteAsync(err);
+                return;
+            }
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = htmlFile,
+                UseShellExecute = true
+            });
+
+            var result = Encoding.UTF8.GetBytes("{\"success\":true}");
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+            Console.WriteLine($"[API] Opened HTML file: {htmlFile}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] open-html error: {ex.Message}");
+            response.StatusCode = 500;
+            var result = Encoding.UTF8.GetBytes("{\"success\":false}");
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+        }
+        finally { response.OutputStream.Close(); }
+    }
+
     static async Task HandleOpenCSS(string playerName, HttpListenerResponse response)
     {
         try
@@ -1079,6 +1944,618 @@ class Program
         {
             response.Close();
         }
+    }
+
+    // ========================================
+    // MEDIA FILTER HANDLERS
+    // ========================================
+
+    static async Task HandleGetMediaFilter(HttpListenerResponse response)
+    {
+        try
+        {
+            // Build source info with display names and current media
+            var sourceInfoList = new List<object>();
+
+            lock (_filterLock)
+            {
+                foreach (var sourceId in _mediaFilter.seenSources)
+                {
+                    var displayName = GetAppDisplayName(sourceId);
+                    string? mediaTitle = null;
+                    string? mediaArtist = null;
+                    bool isPlaying = false;
+
+                    // Try to get current media info for this source
+                    if (_mediaManager != null)
+                    {
+                        foreach (var session in _mediaManager.CurrentMediaSessions.Values)
+                        {
+                            if (session.Id == sourceId)
+                            {
+                                try
+                                {
+                                    var playback = session.ControlSession.GetPlaybackInfo();
+                                    isPlaying = playback.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+
+                                    // Get media properties synchronously (we're in a lock)
+                                    var propsTask = session.ControlSession.TryGetMediaPropertiesAsync().AsTask();
+                                    if (propsTask.Wait(500)) // 500ms timeout
+                                    {
+                                        var props = propsTask.Result;
+                                        mediaTitle = props.Title;
+                                        mediaArtist = props.Artist;
+                                    }
+                                }
+                                catch { }
+                                break;
+                            }
+                        }
+                    }
+
+                    sourceInfoList.Add(new
+                    {
+                        id = sourceId,
+                        displayName,
+                        title = mediaTitle,
+                        artist = mediaArtist,
+                        isPlaying
+                    });
+                }
+            }
+
+            var result = new
+            {
+                mode = _mediaFilter.mode,
+                sources = _mediaFilter.sources,
+                seenSources = _mediaFilter.seenSources,
+                sourceInfo = sourceInfoList
+            };
+
+            var json = JsonSerializer.Serialize(result);
+            var content = Encoding.UTF8.GetBytes(json);
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = content.Length;
+            await response.OutputStream.WriteAsync(content);
+            Console.WriteLine("[API] GET /api/media-filter");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] GET /api/media-filter error: {ex.Message}");
+            response.StatusCode = 500;
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandlePostMediaFilter(HttpListenerRequest request, HttpListenerResponse response)
+    {
+        try
+        {
+            using var reader = new StreamReader(request.InputStream, request.ContentEncoding);
+            var body = await reader.ReadToEndAsync();
+            var config = JsonSerializer.Deserialize<MediaFilterConfig>(body);
+
+            if (config == null)
+            {
+                response.StatusCode = 400;
+                var err = Encoding.UTF8.GetBytes("{\"error\":\"Invalid JSON\"}");
+                response.ContentType = "application/json; charset=utf-8";
+                await response.OutputStream.WriteAsync(err);
+                response.Close();
+                return;
+            }
+
+            var success = SaveMediaFilter(config);
+            var result = Encoding.UTF8.GetBytes($"{{\"success\":{(success ? "true" : "false")}}}");
+            response.StatusCode = success ? 200 : 500;
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+            Console.WriteLine($"[API] POST /api/media-filter {(success ? "OK" : "FAILED")}");
+
+            // Immediately apply filter - find and broadcast allowed session
+            if (success)
+            {
+                _ = Task.Run(async () => await FindAndSendPlayingSession());
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] POST /api/media-filter error: {ex.Message}");
+            response.StatusCode = 400;
+            var result = Encoding.UTF8.GetBytes("{\"error\":\"Invalid JSON\"}");
+            response.ContentType = "application/json; charset=utf-8";
+            await response.OutputStream.WriteAsync(result);
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    // ========================================
+    // CUSTOM PLAYERS HANDLERS
+    // ========================================
+
+    static async Task HandleGetCustomPlayers(HttpListenerResponse response)
+    {
+        try
+        {
+            Directory.CreateDirectory(CUSTOM_PLAYERS_DIR);
+            var files = Directory.GetFiles(CUSTOM_PLAYERS_DIR, "*.html")
+                .Where(f => !f.EndsWith(".backup.html"))
+                .Select(f =>
+                {
+                    var name = Path.GetFileNameWithoutExtension(f);
+                    var backupPath = Path.Combine(CUSTOM_PLAYERS_DIR, $"{name}.backup.html");
+                    return new { name, hasBackup = File.Exists(backupPath), isCustom = true };
+                })
+                .ToList();
+
+            var json = JsonSerializer.Serialize(new { players = files });
+            var content = Encoding.UTF8.GetBytes(json);
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = content.Length;
+            await response.OutputStream.WriteAsync(content);
+            Console.WriteLine($"[API] GET /api/custom-players -> {files.Count} players");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] GET /api/custom-players error: {ex.Message}");
+            response.StatusCode = 500;
+            var result = Encoding.UTF8.GetBytes($"{{\"error\":\"{ex.Message}\"}}");
+            response.ContentType = "application/json; charset=utf-8";
+            await response.OutputStream.WriteAsync(result);
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandlePostCustomPlayer(HttpListenerRequest request, HttpListenerResponse response)
+    {
+        try
+        {
+            using var reader = new StreamReader(request.InputStream, request.ContentEncoding);
+            var body = await reader.ReadToEndAsync();
+            var data = JsonSerializer.Deserialize<JsonElement>(body);
+
+            var name = data.GetProperty("name").GetString() ?? "";
+            var html = data.GetProperty("html").GetString() ?? "";
+
+            if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(html))
+            {
+                response.StatusCode = 400;
+                var err = Encoding.UTF8.GetBytes("{\"error\":\"Name and HTML are required\"}");
+                response.ContentType = "application/json; charset=utf-8";
+                await response.OutputStream.WriteAsync(err);
+                response.Close();
+                return;
+            }
+
+            // Sanitize name
+            var safeName = new string(name.Where(c => char.IsLetterOrDigit(c) || c == '_' || c == '-').ToArray());
+            if (string.IsNullOrEmpty(safeName))
+            {
+                response.StatusCode = 400;
+                var err = Encoding.UTF8.GetBytes("{\"error\":\"Invalid player name\"}");
+                response.ContentType = "application/json; charset=utf-8";
+                await response.OutputStream.WriteAsync(err);
+                response.Close();
+                return;
+            }
+
+            // Validate HTML
+            var validation = ValidateHTML(html);
+            if (!validation.valid)
+            {
+                response.StatusCode = 400;
+                var errJson = JsonSerializer.Serialize(new { error = "HTML validation failed", validation });
+                var err = Encoding.UTF8.GetBytes(errJson);
+                response.ContentType = "application/json; charset=utf-8";
+                await response.OutputStream.WriteAsync(err);
+                response.Close();
+                return;
+            }
+
+            // Save files
+            Directory.CreateDirectory(CUSTOM_PLAYERS_DIR);
+            var htmlPath = Path.Combine(CUSTOM_PLAYERS_DIR, $"{safeName}.html");
+            var backupPath = Path.Combine(CUSTOM_PLAYERS_DIR, $"{safeName}.backup.html");
+
+            await File.WriteAllTextAsync(htmlPath, html);
+
+            // Save backup only on first upload
+            if (!File.Exists(backupPath))
+            {
+                await File.WriteAllTextAsync(backupPath, html);
+            }
+
+            var result = JsonSerializer.Serialize(new { success = true, name = safeName, path = htmlPath, validation });
+            var content = Encoding.UTF8.GetBytes(result);
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = content.Length;
+            await response.OutputStream.WriteAsync(content);
+            Console.WriteLine($"[API] POST /api/custom-players -> saved {safeName}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] POST /api/custom-players error: {ex.Message}");
+            response.StatusCode = 500;
+            var result = Encoding.UTF8.GetBytes($"{{\"error\":\"{ex.Message}\"}}");
+            response.ContentType = "application/json; charset=utf-8";
+            await response.OutputStream.WriteAsync(result);
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandleGetCustomPlayer(string name, HttpListenerResponse response)
+    {
+        try
+        {
+            var safeName = new string(name.Where(c => char.IsLetterOrDigit(c) || c == '_' || c == '-').ToArray());
+            var htmlPath = Path.Combine(CUSTOM_PLAYERS_DIR, $"{safeName}.html");
+
+            if (File.Exists(htmlPath))
+            {
+                var html = await File.ReadAllTextAsync(htmlPath);
+                var content = Encoding.UTF8.GetBytes(html);
+                response.ContentType = "text/html; charset=utf-8";
+                response.ContentLength64 = content.Length;
+                await response.OutputStream.WriteAsync(content);
+                Console.WriteLine($"[API] GET /api/custom-players/{safeName}");
+            }
+            else
+            {
+                response.StatusCode = 404;
+                var result = Encoding.UTF8.GetBytes("{\"error\":\"Player not found\"}");
+                response.ContentType = "application/json; charset=utf-8";
+                await response.OutputStream.WriteAsync(result);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] GET /api/custom-players/{name} error: {ex.Message}");
+            response.StatusCode = 500;
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandleUpdateCustomPlayer(string name, HttpListenerRequest request, HttpListenerResponse response)
+    {
+        try
+        {
+            var safeName = new string(name.Where(c => char.IsLetterOrDigit(c) || c == '_' || c == '-').ToArray());
+            var htmlPath = Path.Combine(CUSTOM_PLAYERS_DIR, $"{safeName}.html");
+
+            if (!File.Exists(htmlPath))
+            {
+                response.StatusCode = 404;
+                var err = Encoding.UTF8.GetBytes("{\"error\":\"Player not found\"}");
+                response.ContentType = "application/json; charset=utf-8";
+                await response.OutputStream.WriteAsync(err);
+                response.Close();
+                return;
+            }
+
+            using var reader = new StreamReader(request.InputStream, request.ContentEncoding);
+            var body = await reader.ReadToEndAsync();
+            var data = JsonSerializer.Deserialize<JsonElement>(body);
+            var html = data.GetProperty("html").GetString() ?? "";
+
+            if (string.IsNullOrEmpty(html))
+            {
+                response.StatusCode = 400;
+                var err = Encoding.UTF8.GetBytes("{\"error\":\"HTML is required\"}");
+                response.ContentType = "application/json; charset=utf-8";
+                await response.OutputStream.WriteAsync(err);
+                response.Close();
+                return;
+            }
+
+            // Validate HTML
+            var validation = ValidateHTML(html);
+            if (!validation.valid)
+            {
+                response.StatusCode = 400;
+                var errJson = JsonSerializer.Serialize(new { error = "HTML validation failed", validation });
+                var err = Encoding.UTF8.GetBytes(errJson);
+                response.ContentType = "application/json; charset=utf-8";
+                await response.OutputStream.WriteAsync(err);
+                response.Close();
+                return;
+            }
+
+            await File.WriteAllTextAsync(htmlPath, html);
+
+            var result = JsonSerializer.Serialize(new { success = true, name = safeName, validation });
+            var content = Encoding.UTF8.GetBytes(result);
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = content.Length;
+            await response.OutputStream.WriteAsync(content);
+            Console.WriteLine($"[API] PUT /api/custom-players/{safeName} -> updated");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] PUT /api/custom-players/{name} error: {ex.Message}");
+            response.StatusCode = 500;
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandleDeleteCustomPlayer(string name, HttpListenerResponse response)
+    {
+        try
+        {
+            var safeName = new string(name.Where(c => char.IsLetterOrDigit(c) || c == '_' || c == '-').ToArray());
+            var htmlPath = Path.Combine(CUSTOM_PLAYERS_DIR, $"{safeName}.html");
+            var backupPath = Path.Combine(CUSTOM_PLAYERS_DIR, $"{safeName}.backup.html");
+            var cssPath = Path.Combine(CSS_DIR, $"{safeName}.css");
+
+            bool deleted = false;
+            if (File.Exists(htmlPath)) { File.Delete(htmlPath); deleted = true; }
+            if (File.Exists(backupPath)) File.Delete(backupPath);
+            if (File.Exists(cssPath)) File.Delete(cssPath);
+
+            if (deleted)
+            {
+                var result = Encoding.UTF8.GetBytes($"{{\"success\":true,\"name\":\"{safeName}\"}}");
+                response.ContentType = "application/json; charset=utf-8";
+                response.ContentLength64 = result.Length;
+                await response.OutputStream.WriteAsync(result);
+                Console.WriteLine($"[API] DELETE /api/custom-players/{safeName}");
+            }
+            else
+            {
+                response.StatusCode = 404;
+                var result = Encoding.UTF8.GetBytes("{\"error\":\"Player not found\"}");
+                response.ContentType = "application/json; charset=utf-8";
+                await response.OutputStream.WriteAsync(result);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] DELETE /api/custom-players/{name} error: {ex.Message}");
+            response.StatusCode = 500;
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandleGetCustomPlayerBackup(string name, HttpListenerResponse response)
+    {
+        try
+        {
+            var safeName = new string(name.Where(c => char.IsLetterOrDigit(c) || c == '_' || c == '-').ToArray());
+            var backupPath = Path.Combine(CUSTOM_PLAYERS_DIR, $"{safeName}.backup.html");
+
+            if (File.Exists(backupPath))
+            {
+                var html = await File.ReadAllTextAsync(backupPath);
+                var content = Encoding.UTF8.GetBytes(html);
+                response.ContentType = "text/html; charset=utf-8";
+                response.ContentLength64 = content.Length;
+                await response.OutputStream.WriteAsync(content);
+                Console.WriteLine($"[API] GET /api/custom-players/{safeName}/backup");
+            }
+            else
+            {
+                response.StatusCode = 404;
+                var result = Encoding.UTF8.GetBytes("{\"error\":\"Backup not found\"}");
+                response.ContentType = "application/json; charset=utf-8";
+                await response.OutputStream.WriteAsync(result);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] GET /api/custom-players/{name}/backup error: {ex.Message}");
+            response.StatusCode = 500;
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandleResetCustomPlayer(string name, HttpListenerResponse response)
+    {
+        try
+        {
+            var safeName = new string(name.Where(c => char.IsLetterOrDigit(c) || c == '_' || c == '-').ToArray());
+            var htmlPath = Path.Combine(CUSTOM_PLAYERS_DIR, $"{safeName}.html");
+            var backupPath = Path.Combine(CUSTOM_PLAYERS_DIR, $"{safeName}.backup.html");
+
+            if (!File.Exists(backupPath))
+            {
+                response.StatusCode = 404;
+                var err = Encoding.UTF8.GetBytes("{\"error\":\"Backup not found\"}");
+                response.ContentType = "application/json; charset=utf-8";
+                await response.OutputStream.WriteAsync(err);
+                response.Close();
+                return;
+            }
+
+            var backupContent = await File.ReadAllTextAsync(backupPath);
+            await File.WriteAllTextAsync(htmlPath, backupContent);
+
+            var result = Encoding.UTF8.GetBytes($"{{\"success\":true,\"name\":\"{safeName}\"}}");
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+            Console.WriteLine($"[API] POST /api/custom-players/{safeName}/reset -> restored from backup");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] POST /api/custom-players/{name}/reset error: {ex.Message}");
+            response.StatusCode = 500;
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandleValidateCustomPlayer(HttpListenerRequest request, HttpListenerResponse response)
+    {
+        try
+        {
+            using var reader = new StreamReader(request.InputStream, request.ContentEncoding);
+            var body = await reader.ReadToEndAsync();
+            var data = JsonSerializer.Deserialize<JsonElement>(body);
+            var html = data.GetProperty("html").GetString() ?? "";
+
+            var validation = ValidateHTML(html);
+            var result = JsonSerializer.Serialize(validation);
+            var content = Encoding.UTF8.GetBytes(result);
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = content.Length;
+            await response.OutputStream.WriteAsync(content);
+            Console.WriteLine($"[API] POST /api/custom-players/validate -> valid: {validation.valid}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] POST /api/custom-players/validate error: {ex.Message}");
+            response.StatusCode = 400;
+            var result = Encoding.UTF8.GetBytes("{\"error\":\"Invalid JSON\"}");
+            response.ContentType = "application/json; charset=utf-8";
+            await response.OutputStream.WriteAsync(result);
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    // ========================================
+    // HTML VALIDATION
+    // ========================================
+
+    static readonly string[] ForbiddenTags = { "script", "iframe", "object", "embed", "applet", "form" };
+    static readonly string[] EventHandlers = {
+        "onabort", "onafterprint", "onbeforeprint", "onbeforeunload", "onblur",
+        "oncanplay", "oncanplaythrough", "onchange", "onclick", "oncontextmenu",
+        "oncopy", "oncuechange", "oncut", "ondblclick", "ondrag", "ondragend",
+        "ondragenter", "ondragleave", "ondragover", "ondragstart", "ondrop",
+        "ondurationchange", "onemptied", "onended", "onerror", "onfocus",
+        "onhashchange", "oninput", "oninvalid", "onkeydown", "onkeypress",
+        "onkeyup", "onload", "onloadeddata", "onloadedmetadata", "onloadstart",
+        "onmessage", "onmousedown", "onmousemove", "onmouseout", "onmouseover",
+        "onmouseup", "onmousewheel", "onoffline", "ononline", "onpagehide",
+        "onpageshow", "onpaste", "onpause", "onplay", "onplaying", "onpopstate",
+        "onprogress", "onratechange", "onreset", "onresize", "onscroll",
+        "onsearch", "onseeked", "onseeking", "onselect", "onstalled", "onstorage",
+        "onsubmit", "onsuspend", "ontimeupdate", "ontoggle", "onunload",
+        "onvolumechange", "onwaiting", "onwheel"
+    };
+    static readonly string[] AllowedDomains = { "fonts.googleapis.com", "fonts.gstatic.com" };
+
+    static (bool valid, List<object> errors) ValidateHTML(string html)
+    {
+        var errors = new List<object>();
+        var lines = html.Split('\n');
+
+        // Check file size (50KB max)
+        if (Encoding.UTF8.GetByteCount(html) > 50 * 1024)
+        {
+            errors.Add(new { line = 1, column = 1, message = "File size exceeds 50KB limit", severity = "error" });
+            return (false, errors);
+        }
+
+        // Check for script tags
+        var scriptRegex = new System.Text.RegularExpressions.Regex(@"<script[\s\S]*?</script>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        foreach (System.Text.RegularExpressions.Match match in scriptRegex.Matches(html))
+        {
+            var pos = GetLineAndColumn(html, match.Index);
+            errors.Add(new { line = pos.line, column = pos.column, message = "<script> tags are not allowed", severity = "error" });
+        }
+
+        // Check for inline script tags
+        var inlineScriptRegex = new System.Text.RegularExpressions.Regex(@"<script[^>]*/?\s*>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        foreach (System.Text.RegularExpressions.Match match in inlineScriptRegex.Matches(html))
+        {
+            var pos = GetLineAndColumn(html, match.Index);
+            errors.Add(new { line = pos.line, column = pos.column, message = "<script> tags are not allowed", severity = "error" });
+        }
+
+        // Check for event handlers
+        foreach (var handler in EventHandlers)
+        {
+            var handlerRegex = new System.Text.RegularExpressions.Regex($@"\s{handler}\s*=", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            foreach (System.Text.RegularExpressions.Match match in handlerRegex.Matches(html))
+            {
+                var pos = GetLineAndColumn(html, match.Index);
+                errors.Add(new { line = pos.line, column = pos.column, message = $"Event handler \"{handler}\" is not allowed", severity = "error" });
+            }
+        }
+
+        // Check for javascript: URLs
+        var jsUrlRegex = new System.Text.RegularExpressions.Regex(@"javascript\s*:", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        foreach (System.Text.RegularExpressions.Match match in jsUrlRegex.Matches(html))
+        {
+            var pos = GetLineAndColumn(html, match.Index);
+            errors.Add(new { line = pos.line, column = pos.column, message = "\"javascript:\" URLs are not allowed", severity = "error" });
+        }
+
+        // Check for forbidden tags
+        foreach (var tag in ForbiddenTags)
+        {
+            var tagRegex = new System.Text.RegularExpressions.Regex($@"<{tag}[\s>]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            foreach (System.Text.RegularExpressions.Match match in tagRegex.Matches(html))
+            {
+                var pos = GetLineAndColumn(html, match.Index);
+                errors.Add(new { line = pos.line, column = pos.column, message = $"<{tag}> tag is not allowed", severity = "error" });
+            }
+        }
+
+        // Check external resources
+        var resourceRegex = new System.Text.RegularExpressions.Regex(@"(src|href)\s*=\s*[""']([^""']+)[""']", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        foreach (System.Text.RegularExpressions.Match match in resourceRegex.Matches(html))
+        {
+            var url = match.Groups[2].Value;
+            if (url.Contains("{{") && url.Contains("}}")) continue;
+            if (url.StartsWith("data:") || url.StartsWith("blob:")) continue;
+            if (!url.Contains("://") && !url.StartsWith("//")) continue;
+
+            var isAllowed = AllowedDomains.Any(domain => url.ToLower().Contains($"//{domain}/") || url.ToLower().Contains($"//{domain}"));
+            if (!isAllowed)
+            {
+                var pos = GetLineAndColumn(html, match.Index);
+                var shortUrl = url.Length > 50 ? url.Substring(0, 50) + "..." : url;
+                errors.Add(new { line = pos.line, column = pos.column, message = $"External resource not allowed: {shortUrl}", severity = "error" });
+            }
+        }
+
+        // Warnings for missing template variables
+        if (!html.Contains("{{title}}"))
+            errors.Add(new { line = 1, column = 1, message = "Missing {{title}} template variable", severity = "warning" });
+        if (!html.Contains("{{artist}}"))
+            errors.Add(new { line = 1, column = 1, message = "Missing {{artist}} template variable", severity = "warning" });
+        if (!html.Contains("{{thumbnail}}"))
+            errors.Add(new { line = 1, column = 1, message = "Missing {{thumbnail}} template variable", severity = "warning" });
+
+        var hasErrors = errors.Any(e => ((dynamic)e).severity == "error");
+        return (!hasErrors, errors);
+    }
+
+    static (int line, int column) GetLineAndColumn(string text, int index)
+    {
+        var lines = text.Substring(0, Math.Min(index, text.Length)).Split('\n');
+        return (lines.Length, lines.Last().Length + 1);
     }
 
     static string GetMimeType(string ext) => ext switch

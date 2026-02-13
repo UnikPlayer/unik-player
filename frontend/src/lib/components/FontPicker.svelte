@@ -227,7 +227,8 @@
   }
 
   .dropdown-arrow {
-    font-size: 0.6rem;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.4rem;
     color: rgba(255, 255, 255, 0.5);
   }
 
@@ -259,8 +260,8 @@
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 4px;
     color: white;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.45rem;
     outline: none;
 
     &::placeholder {
@@ -299,8 +300,8 @@
     padding: 1rem;
     text-align: center;
     color: rgba(255, 255, 255, 0.5);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.45rem;
   }
 
   .font-option {
@@ -348,10 +349,10 @@
   }
 
   .font-category {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.35rem;
     color: rgba(255, 255, 255, 0.4);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.02em;
   }
 </style>

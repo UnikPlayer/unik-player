@@ -1,91 +1,131 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<title>UnikPlayer</title>
-		<link rel="icon" href="/favicon.ico" />
-		
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+    <head>
+        <meta charset="utf-8" />
+        <title>UnikPlayer</title>
+        <link rel="icon" href="/favicon.ico" />
 
-		<link rel="preconnect" href="https://fonts.googleapis.com">
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-		<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=JetBrains+Mono:wght@400;500;600;700&family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&family=Rubik:ital,wght@0,300..900;1,300..900&family=Yeseva+One&display=swap" rel="stylesheet">
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-		
-		<link rel="modulepreload" href="/_app/immutable/entry/start.Dae4E4o6.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/BejwBf1_.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/DK1TPnuG.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/CUgDLBun.js">
-		<link rel="modulepreload" href="/_app/immutable/entry/app.CbrdeZAT.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/DIVv0Rez.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/JAUK0khw.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/DCXVv8Dw.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/CqY7ORS0.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/BWsclHBR.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/CmXx62l9.js">
-	</head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=JetBrains+Mono:wght@400;500;600;700&family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&family=Rubik:ital,wght@0,300..900;1,300..900&family=Yeseva+One&display=swap"
+            rel="stylesheet"
+        />
 
-	<body data-sveltekit-preload-data="hover">
-		<div>
+        
+		<link rel="modulepreload" href="/_app/immutable/entry/start.35QCn5fo.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/CRtvU1K9.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/CVDt0QOw.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/BD5zbwfx.js">
+		<link rel="modulepreload" href="/_app/immutable/entry/app.Dv3_XYAH.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/PPVm8Dsz.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/CKR-9ViA.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/D7KLXbSg.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/BuO4YCOa.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/CYHix89s.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/CjhXmZKN.js">
+    </head>
+
+    <body data-sveltekit-preload-data="hover">
+        <div>
 			<script>
 				{
-					__sveltekit_1vsb5kq = {
+					__sveltekit_z14t99 = {
 						base: ""
 					};
 
 					const element = document.currentScript.parentElement;
 
 					Promise.all([
-						import("/_app/immutable/entry/start.Dae4E4o6.js"),
-						import("/_app/immutable/entry/app.CbrdeZAT.js")
+						import("/_app/immutable/entry/start.35QCn5fo.js"),
+						import("/_app/immutable/entry/app.Dv3_XYAH.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element);
 					});
 				}
 			</script>
 		</div>
-		<!-- <script src="/index.js"></script> -->
-	</body>
+        <!-- <script src="/index.js"></script> -->
+    </body>
 
-	<style>
+    <style>
+        @font-face {
+            font-family: "Press Start 2P";
+            src: url("/fonts/PressStart2P-Regular.ttf") format("truetype");
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
 
-	:root{
-        --background:#000000;
-        --foreground:#6290C3;
-        --foreground2:#C2E7DA;
-        --special:#F1FFE7;
-        --special2:#BAFF29;
+        /* Пример подключения своего шрифта:
+	   1. Положи файл в frontend/static/fonts/MyFont.ttf
+	   2. Раскомментируй и замени названия ниже
+	   3. Добавь 'MyFont' в список availableFonts в Editor.svelte
 
-        /* Player color variables - defaults, Vibrant.js will override */
-        --vibrant: #D4944A;
-        --lightVibrant: #F5DEB3;
-        --darkVibrant: #5C4033;
-        --muted: #8B6914;
-        --lightMuted: #B87333;
-        --darkMuted: rgba(20, 15, 10, 0.9);
-    }
-
-	h1,h2,h3,h4,h5,h6,p,div,body,html{
-	 font-family: Sansation, Garamond, sans-serif;
-	 color: var(--special);
-	}
-
-	h2 > *{
-		font-size: 2.5rem;
-	}
-	h3 > *{
-		font-size: 2rem;
+	@font-face {
+		font-family: 'MyFont';
+		src: url('/fonts/MyFont.ttf') format('truetype');
 		font-weight: 400;
+		font-style: normal;
+		font-display: swap;
 	}
+	*/
 
+        :root {
+            /* === SITE COLORS (static, used in UI) === */
+            --site-background: #000000;
+            --site-accent: #b87333;
+            --site-accent-light: #d4944a;
+            --site-accent-dark: #8b5a2b;
+            --site-text: #f1ffe7;
+            --site-text-muted: rgba(255, 255, 255, 0.5);
+            --site-border: rgba(255, 255, 255, 0.1);
+            --site-glass: rgba(255, 255, 255, 0.05);
 
-	body {
-	 margin: 0;
-	 padding: 0;
-	 overflow-x: hidden;
-	}
-	
+            /* Legacy site colors */
+            --background: #000000;
+            --foreground: #6290c3;
+            --foreground2: #c2e7da;
+            --special: #f1ffe7;
+            --special2: #baff29;
 
-	</style>
-	
+            /* === PLAYER COLORS (dynamic, Vibrant.js will override) === */
+            --vibrant: #d4944a;
+            --lightVibrant: #f5deb3;
+            --darkVibrant: #5c4033;
+            --muted: #8b6914;
+            --lightMuted: #b87333;
+            --darkMuted: rgba(20, 15, 10, 0.9);
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6,
+        p,
+        div,
+        body,
+        html {
+            font-family: Sansation, Garamond, sans-serif;
+            color: var(--special);
+        }
+
+        h2 > * {
+            font-size: 2.5rem;
+        }
+        h3 > * {
+            font-size: 2rem;
+            font-weight: 400;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+    </style>
 </html>

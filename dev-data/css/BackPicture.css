@@ -1,36 +1,84 @@
-/* === BackPicture Player Styles === */
-/* Docs: Use .className * {} to style text (marquee creates child elements) */
+/* === BACKPICTURE PLAYER === */
+/* Colors: var(--vibrant), var(--lightVibrant),
+   var(--darkVibrant), var(--muted),
+   var(--lightMuted), var(--darkMuted) */
 
-* {
-  font-family: "Belion Radego", sans-serif;
+.title > *, .artist > * {
+  font-family: "Rubik", sans-serif;
 }
 
 .mainDiv {
+  position: relative;
+  display: flex;
+  align-items: stretch;
   width: 18rem;
   height: 7.5rem;
 }
 
 .mainDivGlow {
-  box-shadow: 0 0 35px 5px var(--lightMuted);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 95%;
+  height: 95%;
   border-radius: 1rem;
+  box-shadow: 0 0 35px 5px var(--lightMuted);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .textDiv {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
   border-radius: 1rem;
   border: 0.2rem solid var(--vibrant);
+  z-index: 1;
 }
 
 .blurDiv {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   backdrop-filter: blur(8px);
   background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1;
 }
 
-.title * {
+.title, .artist {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  line-height: 1.2;
+  color: var(--lightVibrant);
+  white-space: nowrap;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.title {
+  flex: 3;
+  padding: 0.5rem 1rem;
+}
+
+.title > * {
   font-size: 1.8rem;
-  color: var(--lightVibrant);
 }
 
-.artist * {
+.artist {
+  flex: 2;
+  padding: 0.8rem 1rem;
+}
+
+.artist > * {
   font-size: 1.6rem;
-  color: var(--lightVibrant);
 }
