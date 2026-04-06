@@ -99,7 +99,7 @@
               <span>Browser Source Settings</span>
             </div>
             <div class="code-content">
-              <p><strong>URL:</strong> http://localhost:27272/player?Generic</p>
+              <p><strong>URL:</strong> http://192.168.1.132:27272/player?Generic</p>
               <p><strong>Width:</strong> 500</p>
               <p><strong>Height:</strong> 200</p>
               <p><strong>Custom CSS:</strong> body &#123; background: transparent; &#125;</p>
@@ -206,7 +206,7 @@
             <div class="code-header">
               <span>Подключение</span>
             </div>
-            <pre class="code-content">const ws = new WebSocket('ws://localhost:62727');
+            <pre class="code-content">const ws = new WebSocket('ws://192.168.1.132:62727');
 
 ws.onmessage = (event) => &#123;
   const data = JSON.parse(event.data);
@@ -273,7 +273,8 @@ ws.onmessage = (event) => &#123;
   .docs-page {
     min-height: 100vh;
     position: relative;
-    color: white;
+    color: var(--c2);
+    background: var(--c1);
   }
 
   // Background
@@ -281,9 +282,9 @@ ws.onmessage = (event) => &#123;
     position: fixed;
     inset: 0;
     background:
-      radial-gradient(ellipse at 20% 20%, rgba(184, 115, 51, 0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 80%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 50%, rgba(20, 20, 30, 1) 0%, rgba(5, 5, 10, 1) 100%);
+      radial-gradient(ellipse at 20% 20%, rgba(184, 115, 51, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(184, 115, 51, 0.03) 0%, transparent 50%),
+      var(--c1);
     z-index: -2;
   }
 
@@ -291,8 +292,8 @@ ws.onmessage = (event) => &#123;
     position: fixed;
     inset: 0;
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
     background-size: 50px 50px;
     z-index: -1;
   }
@@ -303,10 +304,10 @@ ws.onmessage = (event) => &#123;
     align-items: center;
     justify-content: space-between;
     padding: 1.5rem 3rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     position: sticky;
     top: 0;
-    background: rgba(10, 10, 15, 0.9);
+    background: rgba(10, 10, 10, 0.95);
     backdrop-filter: blur(10px);
     z-index: 100;
   }
@@ -320,25 +321,24 @@ ws.onmessage = (event) => &#123;
 
   .logo-icon {
     color: #B87333;
-    font-family: monospace;
-    font-size: 1.5rem;
+    font-family: '8bitwonder', monospace;
+    font-size: 1rem;
   }
 
   .logo-text {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: white;
+    font-family: '8bitwonder', monospace;
+    font-size: 0.7rem;
+    color: var(--c2);
+    letter-spacing: 0.06em;
   }
 
   .header-tag {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
+    font-family: '8bitwonder', monospace;
+    font-size: 0.5rem;
     color: #B87333;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     padding: 0.4rem 1rem;
     border: 1px solid rgba(184, 115, 51, 0.3);
-    border-radius: 4px;
   }
 
   // Layout
@@ -353,7 +353,7 @@ ws.onmessage = (event) => &#123;
   // Sidebar
   .docs-sidebar {
     padding: 2rem 1.5rem;
-    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
     position: sticky;
     top: 80px;
     height: fit-content;
@@ -371,15 +371,15 @@ ws.onmessage = (event) => &#123;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
     text-decoration: none;
-    color: rgba(255, 255, 255, 0.6);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem;
-    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.4);
+    font-family: '8bitwonder', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 0.04em;
     transition: all 0.2s;
 
     &:hover {
-      color: white;
-      background: rgba(255, 255, 255, 0.05);
+      color: var(--c2);
+      background: rgba(255, 255, 255, 0.04);
     }
 
     &.active {
@@ -395,8 +395,7 @@ ws.onmessage = (event) => &#123;
   .nav-marker {
     width: 4px;
     height: 4px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.2);
   }
 
   // Content
@@ -415,36 +414,36 @@ ws.onmessage = (event) => &#123;
     gap: 1rem;
     margin-bottom: 1.5rem;
     padding-bottom: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 
     h2 {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1.5rem;
-      font-weight: 700;
+      font-family: '8bitwonder', monospace;
+      font-size: 0.85rem;
       margin: 0;
-      color: white;
+      color: var(--c2);
+      letter-spacing: 0.06em;
     }
   }
 
   .section-number {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem;
+    font-family: '8bitwonder', monospace;
+    font-size: 0.55rem;
     color: #B87333;
   }
 
   .section-body {
     h3 {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1rem;
-      font-weight: 600;
-      color: white;
+      font-family: '8bitwonder', monospace;
+      font-size: 0.65rem;
+      color: var(--c2);
       margin: 2rem 0 1rem;
+      letter-spacing: 0.06em;
     }
 
     p {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Rubik', sans-serif;
       font-size: 0.85rem;
-      color: rgba(255, 255, 255, 0.7);
+      color: rgba(255, 255, 255, 0.55);
       line-height: 1.8;
       margin: 0 0 1rem;
     }
@@ -475,23 +474,21 @@ ws.onmessage = (event) => &#123;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(184, 115, 51, 0.2);
-    border: 1px solid rgba(184, 115, 51, 0.4);
-    border-radius: 8px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1rem;
-    font-weight: 700;
+    background: rgba(184, 115, 51, 0.15);
+    border: 1px solid rgba(184, 115, 51, 0.35);
+    font-family: '8bitwonder', monospace;
+    font-size: 0.65rem;
     color: #B87333;
     flex-shrink: 0;
   }
 
   .step-content {
     h4 {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: white;
+      font-family: '8bitwonder', monospace;
+      font-size: 0.6rem;
+      color: var(--c2);
       margin: 0 0 0.5rem;
+      letter-spacing: 0.04em;
     }
 
     p {
@@ -504,17 +501,17 @@ ws.onmessage = (event) => &#123;
     display: flex;
     gap: 1rem;
     padding: 1rem 1.5rem;
-    background: rgba(184, 115, 51, 0.1);
-    border: 1px solid rgba(184, 115, 51, 0.3);
-    border-radius: 4px;
+    background: rgba(184, 115, 51, 0.08);
+    border: 1px solid rgba(184, 115, 51, 0.25);
     margin: 1.5rem 0;
 
     &.warning {
-      background: rgba(239, 191, 51, 0.1);
-      border-color: rgba(239, 191, 51, 0.3);
+      background: rgba(239, 191, 51, 0.08);
+      border-color: rgba(239, 191, 51, 0.25);
 
       .info-icon {
         color: #efbf33;
+        background: rgba(239, 191, 51, 0.15);
       }
     }
 
@@ -529,11 +526,9 @@ ws.onmessage = (event) => &#123;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(184, 115, 51, 0.2);
-    border-radius: 50%;
-    font-family: serif;
-    font-size: 0.9rem;
-    font-weight: 700;
+    background: rgba(184, 115, 51, 0.15);
+    font-family: '8bitwonder', monospace;
+    font-size: 0.5rem;
     color: #B87333;
     flex-shrink: 0;
   }
@@ -541,8 +536,7 @@ ws.onmessage = (event) => &#123;
   // Code Block
   .code-block {
     background: rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     overflow: hidden;
     margin: 1.5rem 0;
   }
@@ -550,10 +544,11 @@ ws.onmessage = (event) => &#123;
   .code-header {
     padding: 0.6rem 1rem;
     background: rgba(0, 0, 0, 0.3);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.5);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    font-family: '8bitwonder', monospace;
+    font-size: 0.45rem;
+    color: rgba(255, 255, 255, 0.35);
+    letter-spacing: 0.04em;
   }
 
   .code-content {
@@ -583,16 +578,17 @@ ws.onmessage = (event) => &#123;
 
     li {
       padding: 0.5rem 0;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Rubik', sans-serif;
       font-size: 0.85rem;
-      color: rgba(255, 255, 255, 0.7);
+      color: rgba(255, 255, 255, 0.55);
 
       code {
-        background: rgba(184, 115, 51, 0.2);
+        background: rgba(184, 115, 51, 0.15);
         padding: 0.2rem 0.5rem;
-        border-radius: 4px;
         color: #B87333;
         margin-right: 0.5rem;
+        font-family: '8bitwonder', monospace;
+        font-size: 0.5rem;
       }
     }
   }
@@ -612,11 +608,10 @@ ws.onmessage = (event) => &#123;
     padding: 1rem;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 4px;
 
     code {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.75rem;
+      font-family: '8bitwonder', monospace;
+      font-size: 0.45rem;
       color: #B87333;
     }
   }
@@ -624,14 +619,13 @@ ws.onmessage = (event) => &#123;
   .color-swatch {
     width: 100%;
     height: 40px;
-    border-radius: 4px;
     border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .color-desc {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Rubik', sans-serif;
     font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.4);
   }
 
   // Media Display
@@ -641,15 +635,13 @@ ws.onmessage = (event) => &#123;
     align-items: center;
     padding: 1.5rem;
     background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     margin: 1.5rem 0;
   }
 
   .media-thumb {
     width: 80px;
     height: 80px;
-    border-radius: 8px;
     object-fit: cover;
     border: 2px solid rgba(184, 115, 51, 0.3);
   }
@@ -662,16 +654,16 @@ ws.onmessage = (event) => &#123;
   }
 
   .media-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.4);
-    letter-spacing: 0.1em;
+    font-family: '8bitwonder', monospace;
+    font-size: 0.45rem;
+    color: rgba(255, 255, 255, 0.3);
+    letter-spacing: 0.08em;
   }
 
   .media-value {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Rubik', sans-serif;
     font-size: 0.9rem;
-    color: white;
+    color: var(--c2);
   }
 
   .no-media {
@@ -681,19 +673,19 @@ ws.onmessage = (event) => &#123;
     gap: 1rem;
     padding: 3rem;
     background: rgba(255, 255, 255, 0.02);
-    border: 1px dashed rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
+    border: 1px dashed rgba(255, 255, 255, 0.08);
     margin: 1.5rem 0;
 
     p {
       margin: 0;
-      color: rgba(255, 255, 255, 0.4);
+      color: rgba(255, 255, 255, 0.3);
+      font-family: 'Rubik', sans-serif;
     }
   }
 
   .no-media-icon {
     font-size: 2rem;
-    color: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.15);
   }
 
   // Feature List
@@ -711,14 +703,14 @@ ws.onmessage = (event) => &#123;
       padding: 1rem;
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 4px;
 
       strong {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.9rem;
-        color: white;
+        font-family: '8bitwonder', monospace;
+        font-size: 0.55rem;
+        color: var(--c2);
         display: block;
         margin-bottom: 0.25rem;
+        letter-spacing: 0.04em;
       }
 
       p {
@@ -734,10 +726,9 @@ ws.onmessage = (event) => &#123;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(184, 115, 51, 0.2);
-    border-radius: 4px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.9rem;
+    background: rgba(184, 115, 51, 0.15);
+    font-family: '8bitwonder', monospace;
+    font-size: 0.55rem;
     color: #B87333;
     flex-shrink: 0;
   }
@@ -745,11 +736,12 @@ ws.onmessage = (event) => &#123;
   // Footer
   .docs-footer {
     padding: 2rem 3rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
     text-align: center;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.3);
+    font-family: '8bitwonder', monospace;
+    font-size: 0.45rem;
+    color: rgba(255, 255, 255, 0.2);
+    letter-spacing: 0.04em;
   }
 
   // Responsive

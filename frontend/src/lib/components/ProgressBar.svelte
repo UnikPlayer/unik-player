@@ -52,7 +52,7 @@
   }
 
   .time {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Rubik', sans-serif;
     font-size: 0.75rem;
     color: var(--lightVibrant, rgba(255, 255, 255, 0.7));
     min-width: 3.5rem;

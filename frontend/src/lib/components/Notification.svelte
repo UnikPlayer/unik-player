@@ -18,7 +18,7 @@
 </script>
 
 {#if visible}
-  <div class="notification" in:fly={{ y: -50, duration: 300 }} out:fly={{ y: -50, duration: 200 }}>
+  <div class="notification" in:fly={{ y: -30, duration: 300 }} out:fly={{ y: -30, duration: 200 }}>
     <div class="notification-content">
       <span class="notification-icon">[ ]</span>
       <span class="notification-text">{$notificationText}</span>
@@ -27,50 +27,48 @@
   </div>
 {/if}
 
-<style lang="scss">
+<style>
   .notification {
     position: fixed;
-    top: 2rem;
+    top: 1.5rem;
     left: 50%;
     transform: translateX(-50%);
     z-index: 9999;
-    min-width: 280px;
-
-    background: rgba(15, 15, 20, 0.95);
-    border: 1px solid rgba(184, 115, 51, 0.5);
-    border-radius: 4px;
+    min-width: 240px;
+    background: var(--c-cloud, #f5f5f5);
     overflow: hidden;
-    backdrop-filter: blur(10px);
-
-    box-shadow:
-      0 4px 24px rgba(0, 0, 0, 0.4),
-      0 0 40px rgba(184, 115, 51, 0.1);
+    clip-path: polygon(
+      0px 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0px,
+      calc(100% - 8px) 0px, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px,
+      100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%,
+      8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0px calc(100% - 8px)
+    );
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   }
 
   .notification-content {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 1rem 1.5rem;
+    padding: 0.8rem 1.2rem;
   }
 
   .notification-icon {
-    color: #B87333;
-    font-family: monospace;
-    font-size: 1.2rem;
+    color: var(--c1, #0a0a0a);
+    font-family: '8bitwonder', monospace;
+    font-size: 1rem;
   }
 
   .notification-text {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: white;
-    letter-spacing: 0.1em;
+    font-family: '8bitwonder', monospace;
+    font-size: 1rem;
+    color: var(--c1, #0a0a0a);
+    letter-spacing: 0.06em;
   }
 
   .notification-progress {
-    height: 2px;
-    background: linear-gradient(90deg, #B87333, #D4944A);
+    height: 3px;
+    background: var(--c1, #0a0a0a);
     animation: progress 2.5s linear forwards;
   }
 

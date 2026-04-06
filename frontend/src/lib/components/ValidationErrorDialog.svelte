@@ -93,7 +93,7 @@
   .overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.85);
+    background: var(--c-backdrop, rgba(0, 0, 0, 0.65));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -105,31 +105,33 @@
     width: 90%;
     max-width: 900px;
     max-height: 85vh;
-    background: rgba(15, 15, 20, 0.98);
-    border: 1px solid rgba(184, 115, 51, 0.5);
-    border-radius: 8px;
+    background: var(--c1);
+    border: 1px solid rgba(184, 115, 51, 0.4);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow:
-      0 0 60px rgba(184, 115, 51, 0.15),
-      0 20px 40px rgba(0, 0, 0, 0.5);
+    clip-path: polygon(
+      0px 12px, 4px 12px, 4px 8px, 8px 8px, 8px 4px, 12px 4px, 12px 0px,
+      calc(100% - 12px) 0px, calc(100% - 12px) 4px, calc(100% - 8px) 4px, calc(100% - 8px) 8px, calc(100% - 4px) 8px, calc(100% - 4px) 12px, 100% 12px,
+      100% calc(100% - 12px), calc(100% - 4px) calc(100% - 12px), calc(100% - 4px) calc(100% - 8px), calc(100% - 8px) calc(100% - 8px), calc(100% - 8px) calc(100% - 4px), calc(100% - 12px) calc(100% - 4px), calc(100% - 12px) 100%,
+      12px 100%, 12px calc(100% - 4px), 8px calc(100% - 4px), 8px calc(100% - 8px), 4px calc(100% - 8px), 4px calc(100% - 12px), 0px calc(100% - 12px)
+    );
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
   }
 
   .header {
     padding: 1.5rem 2rem;
-    border-bottom: 1px solid rgba(184, 115, 51, 0.3);
+    border-bottom: 1px solid rgba(184, 115, 51, 0.25);
     display: flex;
     align-items: center;
     gap: 1rem;
     position: relative;
 
     h2 {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1.2rem;
-      font-weight: 700;
+      font-family: '8bitwonder', monospace;
+      font-size: 0.7rem;
       color: #ff6b6b;
-      letter-spacing: 0.15em;
+      letter-spacing: 0.08em;
       margin: 0;
     }
 
@@ -139,10 +141,10 @@
       top: 50%;
       transform: translateY(-50%);
       background: transparent;
-      border: 1px solid rgba(255, 107, 107, 0.5);
+      border: 1px solid rgba(255, 107, 107, 0.4);
       color: #ff6b6b;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.9rem;
+      font-family: '8bitwonder', monospace;
+      font-size: 0.55rem;
       padding: 0.4rem 0.8rem;
       cursor: pointer;
       transition: all 0.2s;
@@ -158,21 +160,20 @@
       gap: 0.75rem;
 
       .stat {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.75rem;
+        font-family: '8bitwonder', monospace;
+        font-size: 0.4rem;
         padding: 0.25rem 0.6rem;
-        border-radius: 3px;
 
         &.error {
-          background: rgba(255, 107, 107, 0.15);
+          background: rgba(255, 107, 107, 0.12);
           color: #ff6b6b;
-          border: 1px solid rgba(255, 107, 107, 0.3);
+          border: 1px solid rgba(255, 107, 107, 0.25);
         }
 
         &.warning {
-          background: rgba(255, 193, 7, 0.15);
+          background: rgba(255, 193, 7, 0.12);
           color: #ffc107;
-          border: 1px solid rgba(255, 193, 7, 0.3);
+          border: 1px solid rgba(255, 193, 7, 0.25);
         }
       }
     }
@@ -194,43 +195,35 @@
     max-height: 200px;
     overflow-y: auto;
 
-    &::-webkit-scrollbar {
-      width: 6px;
-    }
-    &::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.05);
-    }
-    &::-webkit-scrollbar-thumb {
-      background: rgba(184, 115, 51, 0.5);
-      border-radius: 3px;
-    }
+    &::-webkit-scrollbar { width: 6px; }
+    &::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.03); }
+    &::-webkit-scrollbar-thumb { background: rgba(184, 115, 51, 0.4); }
   }
 
   .error-item {
     display: flex;
     gap: 1rem;
     padding: 0.6rem 1rem;
-    border-radius: 4px;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.8rem;
 
     &.error {
-      background: rgba(255, 107, 107, 0.1);
+      background: rgba(255, 107, 107, 0.08);
       border-left: 3px solid #ff6b6b;
     }
 
     &.warning {
-      background: rgba(255, 193, 7, 0.1);
+      background: rgba(255, 193, 7, 0.08);
       border-left: 3px solid #ffc107;
     }
 
     .location {
-      color: rgba(255, 255, 255, 0.5);
+      color: rgba(255, 255, 255, 0.4);
       white-space: nowrap;
     }
 
     .message {
-      color: white;
+      color: var(--c2);
     }
   }
 
@@ -243,10 +236,10 @@
   }
 
   .preview-header {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.5);
-    letter-spacing: 0.1em;
+    font-family: '8bitwonder', monospace;
+    font-size: 0.5rem;
+    color: rgba(255, 255, 255, 0.35);
+    letter-spacing: 0.08em;
     margin-bottom: 0.75rem;
   }
 
@@ -255,29 +248,20 @@
     margin: 0;
     padding: 1rem;
     background: rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     overflow: auto;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.75rem;
     line-height: 1.6;
 
-    &::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    &::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.05);
-    }
-    &::-webkit-scrollbar-thumb {
-      background: rgba(184, 115, 51, 0.5);
-      border-radius: 3px;
-    }
+    &::-webkit-scrollbar { width: 6px; height: 6px; }
+    &::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.03); }
+    &::-webkit-scrollbar-thumb { background: rgba(184, 115, 51, 0.4); }
 
     code {
       display: block;
       white-space: pre;
-      color: rgba(255, 255, 255, 0.7);
+      color: rgba(255, 255, 255, 0.6);
     }
 
     :global(.line) {
@@ -288,12 +272,12 @@
       display: inline-block;
       width: 3ch;
       margin-right: 1rem;
-      color: rgba(255, 255, 255, 0.3);
+      color: rgba(255, 255, 255, 0.25);
       user-select: none;
     }
 
     :global(.error-line) {
-      background: rgba(255, 107, 107, 0.15);
+      background: rgba(255, 107, 107, 0.12);
       margin: 0 -1rem;
       padding: 0 1rem;
     }
@@ -301,17 +285,16 @@
 
   .footer {
     padding: 1.25rem 2rem;
-    border-top: 1px solid rgba(184, 115, 51, 0.3);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     justify-content: flex-end;
     gap: 1rem;
   }
 
   .btn {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
+    font-family: '8bitwonder', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.06em;
     padding: 0.6rem 1.2rem;
     border: 1px solid;
     background: transparent;
@@ -320,7 +303,7 @@
 
     &.copy-btn {
       color: #B87333;
-      border-color: rgba(184, 115, 51, 0.5);
+      border-color: rgba(184, 115, 51, 0.4);
 
       &:hover {
         background: rgba(184, 115, 51, 0.1);
@@ -329,12 +312,12 @@
     }
 
     &.close-btn-footer {
-      color: white;
-      border-color: rgba(255, 255, 255, 0.3);
+      color: rgba(255, 255, 255, 0.5);
+      border-color: rgba(255, 255, 255, 0.2);
 
       &:hover {
-        background: rgba(255, 255, 255, 0.1);
-        border-color: rgba(255, 255, 255, 0.5);
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--c2);
       }
     }
   }

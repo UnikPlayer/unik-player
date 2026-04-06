@@ -85,7 +85,7 @@
   // Demo data for fallback
   const demoTitle = 'Midnight City';
   const demoArtist = 'M83';
-  const demoThumbnail = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300"%3E%3Crect fill="%231a1a2e" width="300" height="300"/%3E%3Ctext x="150" y="160" text-anchor="middle" fill="%23B87333" font-size="40" font-family="sans-serif"%3EDEMO%3C/text%3E%3C/svg%3E';
+  const demoThumbnail = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300"%3E%3Crect fill="%23111111" width="300" height="300"/%3E%3Ctext x="150" y="160" text-anchor="middle" fill="%23ffffff" font-size="40" font-family="sans-serif"%3EDEMO%3C/text%3E%3C/svg%3E';
   // Black placeholder when no thumbnail available
   const blackPlaceholder = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300"%3E%3Crect fill="%23000000" width="300" height="300"/%3E%3C/svg%3E';
 

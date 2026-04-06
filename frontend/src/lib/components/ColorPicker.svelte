@@ -130,11 +130,7 @@
         const x = clientX - rect.left - centerX;
         const y = clientY - rect.top - centerY;
 
-        // CSS conic-gradient starts from top (90deg offset), going clockwise
-        // atan2 gives angle from right (0), counter-clockwise positive
-        // We need to convert: CSS angle = 90 - atan2_angle
         let angle = Math.atan2(y, x) * (180 / Math.PI);
-        // Convert to CSS conic-gradient coordinate system (starts from top, clockwise)
         let cssAngle = (angle + 90 + 360) % 360;
 
         const maxRadius = rect.width / 2;
@@ -165,9 +161,8 @@
         updateColorFromHSL();
     }
 
-    // Calculate indicator position from hue and saturation
-    $: indicatorAngle = hue - 90; // Convert back from CSS angle
-    $: indicatorDistance = saturation * 0.5; // 50% of radius = 60px max for 120px wheel
+    $: indicatorAngle = hue - 90;
+    $: indicatorDistance = saturation * 0.5;
 </script>
 
 <svelte:window
@@ -319,24 +314,19 @@
     .mode-btn {
         flex: 1;
         padding: 0.6rem 1rem;
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.45rem;
-        font-weight: 400;
-        letter-spacing: 0.05em;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 2px;
-        color: rgba(255, 255, 255, 0.5);
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
+        letter-spacing: 0.06em;
+        background: transparent;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        color: var(--c1);
         cursor: pointer;
-        transition:
-            color 0.2s,
-            background 0.2s,
-            border-color 0.2s;
+        transition: color 0.2s, background 0.2s, border-color 0.2s;
         transform-origin: center center;
 
         &:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
+            background: rgba(0, 0, 0, 0.06);
+            color: var(--c1);
         }
 
         &:global(.pressing) {
@@ -344,25 +334,17 @@
         }
 
         &.active {
-            background: rgba(184, 115, 51, 0.2);
-            border-color: #b87333;
-            color: #b87333;
+            background: rgba(0, 0, 0, 0.08);
+            border-color: var(--c1);
+            color: var(--c1);
         }
     }
 
     @keyframes btnSquish {
-        0% {
-            transform: scale(1, 1);
-        }
-        35% {
-            transform: scale(1.08, 0.85);
-        }
-        65% {
-            transform: scale(0.92, 1.08);
-        }
-        100% {
-            transform: scale(1, 1);
-        }
+        0% { transform: scale(1, 1); }
+        35% { transform: scale(1.08, 0.85); }
+        65% { transform: scale(0.92, 1.08); }
+        100% { transform: scale(1, 1); }
     }
 
     .color-controls {
@@ -380,14 +362,13 @@
     .color-swatch {
         width: 36px;
         height: 36px;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 4px;
+        border: 1px solid rgba(0, 0, 0, 0.2);
         cursor: pointer;
         transition: all 0.2s ease;
         flex-shrink: 0;
 
         &:hover {
-            border-color: rgba(255, 255, 255, 0.6);
+            border-color: rgba(0, 0, 0, 0.5);
             transform: scale(1.05);
         }
     }
@@ -395,20 +376,18 @@
     .hex-input {
         flex: 1;
         padding: 0.5rem 0.75rem;
-        background: rgba(0, 0, 0, 0.4);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 4px;
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.5rem;
-        font-weight: 400;
-        color: white;
+        background: rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
+        color: var(--c1);
         text-transform: uppercase;
         outline: none;
         transition: all 0.2s ease;
 
         &:focus {
-            border-color: #b87333;
-            background: rgba(0, 0, 0, 0.6);
+            border-color: var(--c1);
+            background: rgba(0, 0, 0, 0.08);
         }
     }
 
@@ -418,8 +397,7 @@
         align-items: center;
         gap: 1rem;
         padding: 1rem;
-        background: rgba(0, 0, 0, 0.3);
-        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.04);
     }
 
     .color-wheel {
@@ -428,12 +406,8 @@
         border-radius: 50%;
         background: conic-gradient(
             from 0deg,
-            hsl(0, 100%, 50%),
-            hsl(60, 100%, 50%),
-            hsl(120, 100%, 50%),
-            hsl(180, 100%, 50%),
-            hsl(240, 100%, 50%),
-            hsl(300, 100%, 50%),
+            hsl(0, 100%, 50%), hsl(60, 100%, 50%), hsl(120, 100%, 50%),
+            hsl(180, 100%, 50%), hsl(240, 100%, 50%), hsl(300, 100%, 50%),
             hsl(360, 100%, 50%)
         );
         position: relative;
@@ -455,12 +429,11 @@
         width: 12px;
         height: 12px;
         margin: -6px 0 0 -6px;
-        border: 2px solid white;
+        border: 2px solid var(--c1);
         border-radius: 50%;
-        box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
         pointer-events: none;
         z-index: 1;
-        transform-origin: center center;
     }
 
     .lightness-control {
@@ -472,15 +445,13 @@
 
     .slider-label,
     .slider-value {
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.4rem;
-        color: rgba(255, 255, 255, 0.5);
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
+        color: var(--c1);
         min-width: 2rem;
     }
 
-    .slider-value {
-        text-align: right;
-    }
+    .slider-value { text-align: right; }
 
     .lightness-slider {
         flex: 1;
@@ -488,16 +459,15 @@
         -webkit-appearance: none;
         appearance: none;
         background: linear-gradient(90deg, #000, #fff);
-        border-radius: 2px;
         cursor: pointer;
 
         &::-webkit-slider-thumb {
             -webkit-appearance: none;
             width: 12px;
             height: 12px;
-            background: white;
+            background: var(--c1);
             border-radius: 50%;
-            border: 2px solid #333;
+            border: 2px solid rgba(0, 0, 0, 0.3);
             cursor: pointer;
         }
     }
@@ -508,14 +478,13 @@
         align-items: center;
         gap: 0.5rem;
         padding: 0.75rem;
-        background: rgba(255, 255, 255, 0.03);
-        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.03);
     }
 
     .info-text {
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.4rem;
-        color: rgba(255, 255, 255, 0.4);
+        font-family: 'Rubik', sans-serif;
+        font-size: 1rem;
+        color: var(--c1);
         text-align: center;
     }
 
@@ -529,26 +498,16 @@
         position: relative;
         width: 24px;
         height: 24px;
-        border-radius: 4px;
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(0, 0, 0, 0.15);
         cursor: pointer;
-        transition:
-            transform 0.2s,
-            box-shadow 0.15s;
+        transition: transform 0.2s, box-shadow 0.15s;
 
-        &:active {
-            transform: scale(0.9);
-            box-shadow: 0 0 10px currentColor;
-        }
+        &:active { transform: scale(0.9); box-shadow: 0 0 10px currentColor; }
 
         &:hover {
             transform: scale(1.2);
             z-index: 10;
-
-            .tooltip {
-                opacity: 1;
-                visibility: visible;
-            }
+            .tooltip { opacity: 1; visibility: visible; }
         }
     }
 
@@ -558,12 +517,11 @@
         left: 50%;
         transform: translateX(-50%);
         padding: 0.3rem 0.5rem;
-        background: rgba(0, 0, 0, 0.9);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 3px;
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.35rem;
-        color: #b87333;
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
+        color: var(--c1);
         white-space: nowrap;
         opacity: 0;
         visibility: hidden;

@@ -9,7 +9,7 @@
     } from "$lib/stores/stores.js";
 
     function getApiBase() {
-        if (typeof window === "undefined") return "http://localhost:27272";
+        if (typeof window === "undefined") return "http://192.168.1.132:27272";
         const port = window.location.port;
         if (port === "7270" || port === "5173") return "";
         return "";

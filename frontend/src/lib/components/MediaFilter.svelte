@@ -209,8 +209,8 @@
     position: fixed;
     inset: 0;
     z-index: 1000;
-    background: rgba(5, 5, 10, 0.9);
-    backdrop-filter: blur(10px);
+    background: var(--c-backdrop, rgba(0, 0, 0, 0.65));
+    backdrop-filter: blur(5px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -220,13 +220,17 @@
   .filter-container {
     width: 100%;
     max-width: 500px;
-    background: linear-gradient(180deg, rgba(15, 15, 20, 0.98) 0%, rgba(10, 10, 15, 0.98) 100%);
-    border: 1px solid rgba(184, 115, 51, 0.3);
-    border-radius: 4px;
+    background: var(--c1);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 0 60px rgba(184, 115, 51, 0.1);
+    clip-path: polygon(
+      0px 12px, 4px 12px, 4px 8px, 8px 8px, 8px 4px, 12px 4px, 12px 0px,
+      calc(100% - 12px) 0px, calc(100% - 12px) 4px, calc(100% - 8px) 4px, calc(100% - 8px) 8px, calc(100% - 4px) 8px, calc(100% - 4px) 12px, 100% 12px,
+      100% calc(100% - 12px), calc(100% - 4px) calc(100% - 12px), calc(100% - 4px) calc(100% - 8px), calc(100% - 8px) calc(100% - 8px), calc(100% - 8px) calc(100% - 4px), calc(100% - 12px) calc(100% - 4px), calc(100% - 12px) 100%,
+      12px 100%, 12px calc(100% - 4px), 8px calc(100% - 4px), 8px calc(100% - 8px), 4px calc(100% - 8px), 4px calc(100% - 12px), 0px calc(100% - 12px)
+    );
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
   }
 
   .filter-header {
@@ -234,31 +238,29 @@
     align-items: center;
     justify-content: space-between;
     padding: 1rem 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .filter-title {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.6rem;
-    color: white;
-    letter-spacing: 0.05em;
+    font-family: '8bitwonder', monospace;
+    font-size: 0.7rem;
+    color: var(--c2);
+    letter-spacing: 0.06em;
   }
 
   .close-btn {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.5rem;
-    color: rgba(255, 255, 255, 0.5);
+    font-family: '8bitwonder', monospace;
+    font-size: 0.55rem;
+    color: rgba(255, 255, 255, 0.4);
     background: none;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
     padding: 0.3rem 0.5rem;
     cursor: pointer;
     transition: all 0.2s;
 
     &:hover {
-      color: white;
-      border-color: rgba(255, 255, 255, 0.5);
+      color: var(--c2);
+      border-color: rgba(255, 255, 255, 0.3);
     }
   }
 
@@ -273,9 +275,9 @@
 
   .loading {
     text-align: center;
-    color: rgba(255, 255, 255, 0.5);
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.5rem;
+    color: rgba(255, 255, 255, 0.3);
+    font-family: '8bitwonder', monospace;
+    font-size: 0.6rem;
     padding: 2rem;
   }
 
@@ -286,13 +288,12 @@
   }
 
   .section-label {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.45rem;
+    font-family: '8bitwonder', monospace;
+    font-size: 0.55rem;
     color: #B87333;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
   }
 
-  // Mode options
   .mode-options {
     display: flex;
     flex-direction: column;
@@ -306,12 +307,11 @@
     padding: 0.6rem 1rem;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 4px;
     cursor: pointer;
     transition: all 0.2s;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.7);
+    font-family: 'Rubik', sans-serif;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
 
     input { display: none; }
 
@@ -323,17 +323,14 @@
     &.active {
       border-color: rgba(184, 115, 51, 0.5);
       background: rgba(184, 115, 51, 0.1);
-      color: white;
+      color: var(--c2);
 
       .radio-dot {
         background: #B87333;
-        box-shadow: 0 0 6px rgba(184, 115, 51, 0.5);
       }
     }
 
     &.recommended {
-      border-color: rgba(184, 115, 51, 0.15);
-
       &.active {
         border-color: rgba(184, 115, 51, 0.6);
         background: rgba(184, 115, 51, 0.15);
@@ -342,11 +339,10 @@
   }
 
   .rec-badge {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.3rem;
+    font-family: '8bitwonder', monospace;
+    font-size: 0.4rem;
     color: #B87333;
     border: 1px solid rgba(184, 115, 51, 0.4);
-    border-radius: 2px;
     padding: 0.15rem 0.4rem;
     margin-left: auto;
     letter-spacing: 0.05em;
@@ -356,23 +352,21 @@
   .radio-dot {
     width: 10px;
     height: 10px;
-    border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.2);
     background: transparent;
     transition: all 0.2s;
     flex-shrink: 0;
   }
 
   .no-sources {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.4);
+    font-family: 'Rubik', sans-serif;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.35);
     line-height: 1.6;
     margin: 0;
     padding: 1rem;
     text-align: center;
-    border: 1px dashed rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
+    border: 1px dashed rgba(255, 255, 255, 0.08);
   }
 
   .sources-list {
@@ -388,7 +382,6 @@
     padding: 0.75rem 1rem;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 4px;
     cursor: pointer;
     transition: all 0.2s;
 
@@ -416,8 +409,7 @@
   .checkbox-box {
     width: 14px;
     height: 14px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-radius: 2px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
     background: transparent;
     transition: all 0.2s;
     flex-shrink: 0;
@@ -432,26 +424,25 @@
   }
 
   .source-name {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem;
-    color: white;
-    font-weight: 600;
+    font-family: '8bitwonder', monospace;
+    font-size: 0.65rem;
+    color: var(--c2);
   }
 
   .source-media {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    color: rgba(255, 255, 255, 0.5);
+    font-family: 'Rubik', sans-serif;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.35);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 
     &.playing {
-      color: rgba(184, 115, 51, 0.9);
+      color: #B87333;
     }
 
     &.idle {
-      color: rgba(255, 255, 255, 0.25);
+      color: rgba(255, 255, 255, 0.2);
       font-style: italic;
     }
   }
@@ -460,19 +451,16 @@
     display: flex;
     gap: 1rem;
     padding: 1rem 1.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(0, 0, 0, 0.3);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .btn {
     flex: 1;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.45rem;
-    font-weight: 400;
-    letter-spacing: 0.05em;
+    font-family: '8bitwonder', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.06em;
     padding: 0.8rem 1rem;
     border: 1px solid;
-    border-radius: 2px;
     cursor: pointer;
     transition: all 0.2s;
   }
@@ -483,19 +471,19 @@
     color: #B87333;
 
     &:hover {
-      background: rgba(184, 115, 51, 0.4);
-      color: #D4944A;
+      background: rgba(184, 115, 51, 0.35);
+      color: #d4944a;
     }
   }
 
   .btn-cancel {
     background: transparent;
-    border-color: rgba(255, 255, 255, 0.3);
-    color: rgba(255, 255, 255, 0.7);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.5);
 
     &:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: white;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--c2);
     }
   }
 </style>

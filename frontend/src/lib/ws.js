@@ -90,7 +90,7 @@ export async function connect() {
     }
   }
 
-  const url = "ws://localhost:62727";
+  const url = "ws://192.168.1.132:62727";
   console.log("[WS] Connecting to", url);
 
   try {

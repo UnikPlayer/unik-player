@@ -10,17 +10,21 @@ export async function chooseFunc(name){
 
 export async function copyPlayerStyle(name) {
     ShowNotification.set(true)
-        
-    let url = location.href
-    let copyUrl = url + 'player?' + name
-    await navigator.clipboard.writeText(copyUrl)
-    
-    .then(() => {
+    const copyUrl = `http://172.19.0.1:7270/player?${name}`;
+    try {
+        if (navigator.clipboard) {
+            await navigator.clipboard.writeText(copyUrl);
+        } else {
+            const ta = document.createElement('textarea');
+            ta.value = copyUrl;
+            ta.style.cssText = 'position:fixed;left:-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        }
         console.log('Скопировано!');
-        
-    })
-    .catch(err => {
+    } catch (err) {
         console.error('Не удалось скопировать: ', err);
-    });
-
+    }
 }

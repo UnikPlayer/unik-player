@@ -2,9 +2,9 @@ import { writable } from "svelte/store";
 
 // Backend API base URL - empty for same origin (production), full URL for dev
 const isBrowser = typeof window !== 'undefined';
-const API_BASE = isBrowser && window.location.port === '5173'
-  ? 'http://localhost:27272'  // Dev mode: frontend on 5173, backend on 27272
-  : '';                        // Production: same origin, use relative URLs
+const API_BASE = isBrowser && (window.location.port === '5173' || window.location.port === '7270')
+  ? 'http://192.168.1.132:27272'  // Dev mode: frontend on 7270, backend on 27272
+  : '';                             // Production: same origin, use relative URLs
 
 // Helper to create a persistent store with localStorage (for non-critical settings)
 function persistentWritable(key, initialValue) {
@@ -137,3 +137,6 @@ export let selectedFont = persistentWritable('unikplayer_font', 'Rubik')
 
 // Language: 'en' or 'ru'
 export let language = writable('ru')
+
+// Potato mode: disable all animations
+export let potatoMode = persistentWritable('unikplayer_potato', false)

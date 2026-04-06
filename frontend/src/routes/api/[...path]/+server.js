@@ -1,5 +1,5 @@
 // Universal API proxy route - catches all /api/* requests
-const BACKEND = 'http://localhost:27272';
+const BACKEND = 'http://192.168.1.132:27272';
 
 async function proxyRequest(event) {
   const { request, url } = event;

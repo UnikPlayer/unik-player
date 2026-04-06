@@ -1,6 +1,7 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Net;
+using System.Net.Sockets;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -44,6 +45,11 @@ class Program
     private static string MEDIA_FILTER_FILE = "";
     private static MediaFilterConfig _mediaFilter = new();
     private static readonly object _filterLock = new();
+
+    // Site auth (cloud sync)
+    private static string SITE_AUTH_FILE = "";
+    private static string? _siteAuthToken;
+    private static string? _siteAuthNickname;
 
     class MediaFilterConfig
     {
@@ -244,6 +250,7 @@ class Program
         CSS_DIR = Path.Combine(STYLES_DIR, "css");
         CUSTOM_PLAYERS_DIR = Path.Combine(STYLES_DIR, "custom");
         MEDIA_FILTER_FILE = Path.Combine(STYLES_DIR, "media-filter.json");
+        SITE_AUTH_FILE = Path.Combine(STYLES_DIR, "site-auth.json");
 
         // Ensure directories exist
         Directory.CreateDirectory(STYLES_DIR);
@@ -252,6 +259,9 @@ class Program
 
         // Load media filter config
         LoadMediaFilter();
+
+        // Load site auth state
+        LoadSiteAuth();
 
         // Install example players on first run
         InstallExamplePlayers();
@@ -517,8 +527,8 @@ class Program
         Task.Run(() => StartWebSocketServer());
         StartMediaManager();
 
-        Console.WriteLine($"HTTP сервер: http://localhost:{HTTP_PORT}/");
-        Console.WriteLine($"WebSocket сервер: ws://localhost:{WS_PORT}/");
+        Console.WriteLine($"HTTP сервер: http://192.168.1.132:{HTTP_PORT}/");
+        Console.WriteLine($"WebSocket сервер: ws://192.168.1.132:{WS_PORT}/");
         Console.WriteLine("UnikPlayer работает.");
 
         // Setup tray icon
@@ -531,7 +541,7 @@ class Program
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = $"http://localhost:{HTTP_PORT}/",
+                FileName = "http://172.19.0.1:7270/",
                 UseShellExecute = true
             });
         }
@@ -653,7 +663,7 @@ class Program
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = $"http://localhost:{HTTP_PORT}/",
+                FileName = "http://172.19.0.1:7270/",
                 UseShellExecute = true
             });
         });
@@ -676,7 +686,7 @@ class Program
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = $"http://localhost:{HTTP_PORT}/",
+                FileName = "http://172.19.0.1:7270/",
                 UseShellExecute = true
             });
         };
@@ -1181,12 +1191,160 @@ class Program
         }
     }
 
+    // TCP proxy: слушает на 0.0.0.0 (все интерфейсы, без админа) и форвардит на localhost HttpListener
+    static async Task StartTcpProxy(int publicPort, int internalPort, string label)
+    {
+        var listener = new TcpListener(IPAddress.Any, publicPort);
+        listener.Start();
+        Console.WriteLine($"[{label}] Proxy 0.0.0.0:{publicPort} -> localhost:{internalPort}");
+
+        while (true)
+        {
+            try
+            {
+                var client = await listener.AcceptTcpClientAsync();
+                _ = ForwardConnection(client, internalPort);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[{label}] Proxy error: {ex.Message}");
+            }
+        }
+    }
+
+    static async Task ForwardConnection(TcpClient client, int localPort)
+    {
+        try
+        {
+            using (client)
+            {
+                var cs = client.GetStream();
+
+                // Read HTTP headers
+                var buf = new byte[8192];
+                var ms = new MemoryStream();
+                int headerEnd = -1;
+
+                while (headerEnd < 0)
+                {
+                    int n = await cs.ReadAsync(buf, 0, buf.Length);
+                    if (n == 0) return;
+                    int prevLen = (int)ms.Length;
+                    ms.Write(buf, 0, n);
+                    var data = ms.ToArray();
+                    for (int i = Math.Max(0, prevLen - 3); i <= data.Length - 4; i++)
+                    {
+                        if (data[i] == '\r' && data[i + 1] == '\n' && data[i + 2] == '\r' && data[i + 3] == '\n')
+                        {
+                            headerEnd = i + 4;
+                            break;
+                        }
+                    }
+                }
+
+                var allData = ms.ToArray();
+                var headers = Encoding.ASCII.GetString(allData, 0, headerEnd);
+
+                // Parse request line (e.g. "GET /auth-callback?token=xxx HTTP/1.1")
+                var firstLine = headers.Substring(0, headers.IndexOf("\r\n"));
+                var parts = firstLine.Split(' ');
+                var requestPath = parts.Length > 1 ? parts[1] : "";
+
+                // /auth-callback is now a frontend SvelteKit page, forward normally
+
+                // All other requests: rewrite Host and forward to HttpListener
+                using (var upstream = new TcpClient())
+                {
+                    await upstream.ConnectAsync(IPAddress.Loopback, localPort);
+                    var us = upstream.GetStream();
+
+                    var hostLine = $"Host: localhost:{localPort}";
+                    headers = System.Text.RegularExpressions.Regex.Replace(
+                        headers, @"(?im)^Host:[^\r\n]+", hostLine);
+
+                    var newHeaders = Encoding.ASCII.GetBytes(headers);
+                    await us.WriteAsync(newHeaders, 0, newHeaders.Length);
+
+                    if (allData.Length > headerEnd)
+                        await us.WriteAsync(allData, headerEnd, allData.Length - headerEnd);
+
+                    var t1 = cs.CopyToAsync(us);
+                    var t2 = us.CopyToAsync(cs);
+                    await Task.WhenAny(t1, t2);
+                }
+            }
+        }
+        catch { }
+    }
+
+    static async Task HandleAuthCallbackDirect(NetworkStream cs, string requestPath)
+    {
+        // Parse query string from path
+        string? token = null;
+        string? nickname = null;
+        var qIdx = requestPath.IndexOf('?');
+        if (qIdx >= 0)
+        {
+            var qs = requestPath.Substring(qIdx + 1);
+            foreach (var pair in qs.Split('&'))
+            {
+                var kv = pair.Split('=', 2);
+                if (kv.Length == 2)
+                {
+                    var key = Uri.UnescapeDataString(kv[0]);
+                    var val = Uri.UnescapeDataString(kv[1]);
+                    if (key == "token") token = val;
+                    if (key == "nickname") nickname = val;
+                }
+            }
+        }
+
+        string body;
+        if (string.IsNullOrEmpty(token))
+        {
+            body = "<html><body><h1>Error: no token</h1></body></html>";
+        }
+        else
+        {
+            nickname ??= DecodeJwtNickname(token);
+            _siteAuthToken = token;
+            _siteAuthNickname = nickname;
+            SaveSiteAuth();
+            Console.WriteLine($"[API] Auth callback - logged in as: {nickname}");
+
+            body = @"<html>
+<head><style>
+  body { background: #0a0a0a; color: #fff; font-family: monospace; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+  .box { text-align: center; }
+  h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+  p { color: rgba(255,255,255,0.6); }
+</style></head>
+<body><div class='box'>
+  <h1>Logged in</h1>
+  <p>You can close this window</p>
+  <script>setTimeout(()=>window.close(),2000);</script>
+</div></body></html>";
+        }
+
+        var bodyBytes = Encoding.UTF8.GetBytes(body);
+        var status = string.IsNullOrEmpty(token) ? "400 Bad Request" : "200 OK";
+        var response = $"HTTP/1.1 {status}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {bodyBytes.Length}\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\n\r\n";
+        var responseBytes = Encoding.ASCII.GetBytes(response);
+
+        await cs.WriteAsync(responseBytes, 0, responseBytes.Length);
+        await cs.WriteAsync(bodyBytes, 0, bodyBytes.Length);
+    }
+
     static async Task StartWebSocketServer()
     {
+        int internalPort = WS_PORT + 1;
         _wsListener = new HttpListener();
-        _wsListener.Prefixes.Add($"http://localhost:{WS_PORT}/");
+        _wsListener.Prefixes.Add($"http://localhost:{internalPort}/");
         _wsListener.Start();
-        Console.WriteLine($"[WS] WebSocket сервер запущен на порту {WS_PORT}");
+
+        // TCP proxy на публичном порте
+        _ = Task.Run(() => StartTcpProxy(WS_PORT, internalPort, "WS"));
+        Console.WriteLine($"[WS] WebSocket сервер на 0.0.0.0:{WS_PORT}");
 
         while (true)
         {
@@ -1362,21 +1520,26 @@ class Program
 
     static async Task StartHttpServer()
     {
+        int internalPort = HTTP_PORT + 1;
         _httpListener = new HttpListener();
-        _httpListener.Prefixes.Add($"http://localhost:{HTTP_PORT}/");
+        _httpListener.Prefixes.Add($"http://localhost:{internalPort}/");
         _httpListener.Start();
-        Console.WriteLine($"[HTTP] Сервер запущен на порту {HTTP_PORT}");
+
+        // TCP proxy на публичном порте
+        _ = Task.Run(() => StartTcpProxy(HTTP_PORT, internalPort, "HTTP"));
+        Console.WriteLine($"[HTTP] Сервер на 0.0.0.0:{HTTP_PORT}");
 
         // Find frontBuild directory
         var possiblePaths = new[]
         {
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "frontBuild"),
             Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "frontBuild"),
             Path.Combine(AppContext.BaseDirectory, "..", "..", "frontBuild"),
             Path.Combine(AppContext.BaseDirectory, "frontBuild"),
             Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "frontBuild"),
             Path.Combine(Directory.GetCurrentDirectory(), "..", "frontBuild"),
             Path.Combine(Directory.GetCurrentDirectory(), "frontBuild"),
-            @"C:\Users\000-d\Desktop\JShit\unikPlayer\frontBuild"
+            @"C:\Users\000-d\Desktop\JShit\Unik player reps\unikPlayer\frontBuild"
         };
 
         string? staticDir = null;
@@ -1582,6 +1745,31 @@ class Program
             return;
         }
 
+        // ========================================
+        // SITE AUTH API (Cloud Sync)
+        // ========================================
+
+        // API: GET /api/site-auth - get stored auth state
+        if (path == "/api/site-auth" && request.HttpMethod == "GET")
+        {
+            await HandleGetSiteAuth(response);
+            return;
+        }
+
+        // API: POST /api/site-auth - save token from frontend auth-callback page
+        if (path == "/api/site-auth" && request.HttpMethod == "POST")
+        {
+            await HandlePostSiteAuth(request, response);
+            return;
+        }
+
+        // API: DELETE /api/site-auth - logout (clear auth state)
+        if (path == "/api/site-auth" && request.HttpMethod == "DELETE")
+        {
+            await HandleDeleteSiteAuth(response);
+            return;
+        }
+
         // Static file serving
         if (path == "/") path = "/index.html";
 
@@ -1593,6 +1781,16 @@ class Program
             response.StatusCode = 403;
             response.Close();
             return;
+        }
+
+        // Try path/index.html for directory-style routes (e.g. /auth-callback -> auth-callback/index.html)
+        if (!File.Exists(filePath) && !Path.HasExtension(filePath))
+        {
+            var dirIndex = Path.Combine(filePath, "index.html");
+            if (File.Exists(dirIndex))
+            {
+                filePath = dirIndex;
+            }
         }
 
         // If file not found, serve index.html (SPA routing)
@@ -1879,8 +2077,9 @@ class Program
 
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = htmlFile,
-                UseShellExecute = true
+                FileName = "rundll32.exe",
+                Arguments = $"shell32.dll,OpenAs_RunDLL {htmlFile}",
+                UseShellExecute = false
             });
 
             var result = Encoding.UTF8.GetBytes("{\"success\":true}");
@@ -2069,6 +2268,238 @@ class Program
             var result = Encoding.UTF8.GetBytes("{\"error\":\"Invalid JSON\"}");
             response.ContentType = "application/json; charset=utf-8";
             await response.OutputStream.WriteAsync(result);
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    // ========================================
+    // SITE AUTH HANDLERS (Cloud Sync)
+    // ========================================
+
+    static void LoadSiteAuth()
+    {
+        try
+        {
+            if (File.Exists(SITE_AUTH_FILE))
+            {
+                var json = File.ReadAllText(SITE_AUTH_FILE);
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                _siteAuthToken = root.TryGetProperty("token", out var t) ? t.GetString() : null;
+                _siteAuthNickname = root.TryGetProperty("nickname", out var n) ? n.GetString() : null;
+                if (_siteAuthToken != null)
+                    Console.WriteLine($"[SiteAuth] Loaded auth for: {_siteAuthNickname}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SiteAuth] Load error: {ex.Message}");
+        }
+    }
+
+    static void SaveSiteAuth()
+    {
+        try
+        {
+            Directory.CreateDirectory(STYLES_DIR);
+            var json = JsonSerializer.Serialize(new
+            {
+                token = _siteAuthToken,
+                nickname = _siteAuthNickname
+            }, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(SITE_AUTH_FILE, json);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SiteAuth] Save error: {ex.Message}");
+        }
+    }
+
+    static async Task HandleGetSiteAuth(HttpListenerResponse response)
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(new
+            {
+                token = _siteAuthToken,
+                nickname = _siteAuthNickname
+            });
+            var content = Encoding.UTF8.GetBytes(json);
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = content.Length;
+            await response.OutputStream.WriteAsync(content);
+            Console.WriteLine("[API] GET /api/site-auth");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] GET /api/site-auth error: {ex.Message}");
+            response.StatusCode = 500;
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandlePostSiteAuth(HttpListenerRequest request, HttpListenerResponse response)
+    {
+        try
+        {
+            using var reader = new System.IO.StreamReader(request.InputStream, request.ContentEncoding);
+            var body = await reader.ReadToEndAsync();
+            var doc = JsonDocument.Parse(body);
+            var token = doc.RootElement.GetProperty("token").GetString();
+
+            if (string.IsNullOrEmpty(token))
+            {
+                response.StatusCode = 400;
+                var err = Encoding.UTF8.GetBytes("{\"error\":\"no token\"}");
+                response.ContentType = "application/json; charset=utf-8";
+                response.ContentLength64 = err.Length;
+                await response.OutputStream.WriteAsync(err);
+                return;
+            }
+
+            var nickname = DecodeJwtNickname(token);
+            _siteAuthToken = token;
+            _siteAuthNickname = nickname;
+            SaveSiteAuth();
+
+            var result = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { success = true, nickname }));
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+            Console.WriteLine($"[API] POST /api/site-auth - logged in as: {nickname}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] POST /api/site-auth error: {ex.Message}");
+            response.StatusCode = 500;
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandleDeleteSiteAuth(HttpListenerResponse response)
+    {
+        try
+        {
+            _siteAuthToken = null;
+            _siteAuthNickname = null;
+            if (File.Exists(SITE_AUTH_FILE))
+                File.Delete(SITE_AUTH_FILE);
+
+            // Delete synced players (liked_*)
+            try
+            {
+                if (Directory.Exists(CUSTOM_PLAYERS_DIR))
+                {
+                    foreach (var f in Directory.GetFiles(CUSTOM_PLAYERS_DIR, "liked_*"))
+                    {
+                        File.Delete(f);
+                        Console.WriteLine($"[SiteAuth] Deleted synced player: {Path.GetFileName(f)}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SiteAuth] Error cleaning synced players: {ex.Message}");
+            }
+
+            var result = Encoding.UTF8.GetBytes("{\"success\":true}");
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+            Console.WriteLine("[API] DELETE /api/site-auth - logged out");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] DELETE /api/site-auth error: {ex.Message}");
+            response.StatusCode = 500;
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static string DecodeJwtNickname(string token)
+    {
+        try
+        {
+            var parts = token.Split('.');
+            if (parts.Length < 2) return "User";
+            // Base64Url decode payload
+            var payload = parts[1];
+            payload = payload.Replace('-', '+').Replace('_', '/');
+            switch (payload.Length % 4)
+            {
+                case 2: payload += "=="; break;
+                case 3: payload += "="; break;
+            }
+            var bytes = Convert.FromBase64String(payload);
+            var json = Encoding.UTF8.GetString(bytes);
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            // Try nickname, then user_id
+            if (root.TryGetProperty("nickname", out var nick)) return nick.GetString() ?? "User";
+            if (root.TryGetProperty("user_id", out var uid)) return uid.GetString() ?? "User";
+            return "User";
+        }
+        catch { return "User"; }
+    }
+
+    static async Task HandleAuthCallback(HttpListenerRequest request, HttpListenerResponse response)
+    {
+        try
+        {
+            var query = request.QueryString;
+            var token = query["token"];
+
+            if (string.IsNullOrEmpty(token))
+            {
+                response.StatusCode = 400;
+                var err = Encoding.UTF8.GetBytes("<html><body><h1>Error: no token</h1></body></html>");
+                response.ContentType = "text/html; charset=utf-8";
+                await response.OutputStream.WriteAsync(err);
+                response.Close();
+                return;
+            }
+
+            var nickname = query["nickname"] ?? DecodeJwtNickname(token);
+
+            _siteAuthToken = token;
+            _siteAuthNickname = nickname;
+            SaveSiteAuth();
+
+            var html = $@"<html>
+<head><style>
+  body {{ background: #0a0a0a; color: #fff; font-family: monospace; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+  .box {{ text-align: center; }}
+  h1 {{ font-size: 2rem; margin-bottom: 0.5rem; }}
+  p {{ color: rgba(255,255,255,0.6); }}
+</style></head>
+<body><div class='box'>
+  <h1>Logged in</h1>
+  <p>You can close this window</p>
+  <script>setTimeout(()=>window.close(),2000);</script>
+</div></body></html>";
+
+            var content = Encoding.UTF8.GetBytes(html);
+            response.ContentType = "text/html; charset=utf-8";
+            response.ContentLength64 = content.Length;
+            await response.OutputStream.WriteAsync(content);
+            Console.WriteLine($"[API] Auth callback - logged in as: {nickname}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API] Auth callback error: {ex.Message}");
+            response.StatusCode = 500;
         }
         finally
         {

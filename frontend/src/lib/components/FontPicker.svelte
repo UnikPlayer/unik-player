@@ -20,7 +20,6 @@
 
   // Common system fonts fallback - comprehensive list for Windows
   const commonSystemFonts = [
-    // Sans-serif
     { name: 'Arial', family: 'Arial', category: 'system' },
     { name: 'Arial Black', family: '"Arial Black"', category: 'system' },
     { name: 'Calibri', family: 'Calibri', category: 'system' },
@@ -33,7 +32,6 @@
     { name: 'Verdana', family: 'Verdana', category: 'system' },
     { name: 'Franklin Gothic Medium', family: '"Franklin Gothic Medium"', category: 'system' },
     { name: 'Gill Sans MT', family: '"Gill Sans MT"', category: 'system' },
-    // Serif
     { name: 'Times New Roman', family: '"Times New Roman"', category: 'system' },
     { name: 'Georgia', family: 'Georgia', category: 'system' },
     { name: 'Palatino Linotype', family: '"Palatino Linotype"', category: 'system' },
@@ -42,24 +40,20 @@
     { name: 'Garamond', family: 'Garamond', category: 'system' },
     { name: 'Bodoni MT', family: '"Bodoni MT"', category: 'system' },
     { name: 'Rockwell', family: 'Rockwell', category: 'system' },
-    // Monospace
     { name: 'Consolas', family: 'Consolas', category: 'system' },
     { name: 'Courier New', family: '"Courier New"', category: 'system' },
     { name: 'Lucida Console', family: '"Lucida Console"', category: 'system' },
     { name: 'Cascadia Code', family: '"Cascadia Code"', category: 'system' },
     { name: 'Cascadia Mono', family: '"Cascadia Mono"', category: 'system' },
-    // Display / Fun
     { name: 'Impact', family: 'Impact', category: 'system' },
     { name: 'Comic Sans MS', family: '"Comic Sans MS"', category: 'system' },
     { name: 'Papyrus', family: 'Papyrus', category: 'system' },
     { name: 'Copperplate Gothic Bold', family: '"Copperplate Gothic Bold"', category: 'system' },
     { name: 'Lucida Handwriting', family: '"Lucida Handwriting"', category: 'system' },
     { name: 'Brush Script MT', family: '"Brush Script MT"', category: 'system' },
-    // Script
     { name: 'Segoe Script', family: '"Segoe Script"', category: 'system' },
     { name: 'Segoe Print', family: '"Segoe Print"', category: 'system' },
     { name: 'MV Boli', family: '"MV Boli"', category: 'system' },
-    // Modern Windows fonts
     { name: 'Bahnschrift', family: 'Bahnschrift', category: 'system' },
     { name: 'Sitka Text', family: '"Sitka Text"', category: 'system' },
     { name: 'Sylfaen', family: 'Sylfaen', category: 'system' },
@@ -68,7 +62,6 @@
   onMount(async () => {
     loadingFonts = true;
 
-    // 1. First try to load fonts from backend API (uses Windows GDI+)
     try {
       const res = await fetch('/api/fonts');
       if (res.ok) {
@@ -88,14 +81,12 @@
       console.log('[FontPicker] Backend API not available, trying fallbacks');
     }
 
-    // 2. Try to load system fonts using the Local Font Access API
     if ('queryLocalFonts' in window) {
       try {
         const fonts = await window.queryLocalFonts();
         const uniqueFonts = new Map();
 
         fonts.forEach(font => {
-          // Only keep regular style (not bold, italic variants)
           if (!uniqueFonts.has(font.family)) {
             uniqueFonts.set(font.family, {
               name: font.family,
@@ -115,7 +106,6 @@
       }
     }
 
-    // 3. Fallback to hardcoded list
     systemFonts = commonSystemFonts;
     console.log('[FontPicker] Using fallback font list');
     loadingFonts = false;
@@ -134,7 +124,6 @@
     }
   }
 
-  // Combine base and system fonts, filter by search
   $: allFonts = [...baseFonts, ...systemFonts];
   $: filteredFonts = searchQuery
     ? allFonts.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -202,24 +191,23 @@
     align-items: center;
     justify-content: space-between;
     padding: 0.75rem 1rem;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
+    background: transparent;
+    border: 1px solid rgba(0, 0, 0, 0.12);
     cursor: pointer;
     transition: all 0.2s ease;
     height: 44px;
     box-sizing: border-box;
 
     &:hover, &.open {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.25);
+      background: rgba(0, 0, 0, 0.04);
+      border-color: rgba(0, 0, 0, 0.25);
     }
   }
 
   .font-preview {
     font-size: 14px !important;
     line-height: 1.2 !important;
-    color: white;
+    color: var(--c1);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -227,9 +215,9 @@
   }
 
   .dropdown-arrow {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.4rem;
-    color: rgba(255, 255, 255, 0.5);
+    font-family: '8bitwonder', monospace;
+    font-size: 1rem;
+    color: rgba(0, 0, 0, 0.3);
   }
 
   .font-dropdown {
@@ -238,38 +226,36 @@
     left: 0;
     right: 0;
     margin-top: 4px;
-    background: rgba(20, 20, 25, 0.98);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid rgba(0, 0, 0, 0.15);
     z-index: 100;
-    backdrop-filter: blur(10px);
     display: flex;
     flex-direction: column;
     max-height: 300px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   }
 
   .search-box {
     padding: 0.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   }
 
   .search-input {
     width: 100%;
     padding: 0.5rem 0.75rem;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
-    color: white;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.45rem;
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    color: var(--c1);
+    font-family: '8bitwonder', monospace;
+    font-size: 1rem;
     outline: none;
 
     &::placeholder {
-      color: rgba(255, 255, 255, 0.4);
+      color: rgba(0, 0, 0, 0.25);
     }
 
     &:focus {
-      border-color: rgba(184, 115, 51, 0.5);
+      border-color: var(--c1);
     }
   }
 
@@ -277,21 +263,11 @@
     flex: 1;
     overflow-y: auto;
 
-    &::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.05);
-    }
-
+    &::-webkit-scrollbar { width: 6px; }
+    &::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.03); }
     &::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 3px;
-
-      &:hover {
-        background: rgba(255, 255, 255, 0.3);
-      }
+      background: rgba(0, 0, 0, 0.12);
+      &:hover { background: rgba(0, 0, 0, 0.2); }
     }
   }
 
@@ -299,9 +275,9 @@
   .no-results {
     padding: 1rem;
     text-align: center;
-    color: rgba(255, 255, 255, 0.5);
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.45rem;
+    color: rgba(0, 0, 0, 0.35);
+    font-family: '8bitwonder', monospace;
+    font-size: 1rem;
   }
 
   .font-option {
@@ -312,24 +288,25 @@
     padding: 0.6rem 1rem;
     background: transparent;
     border: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     cursor: pointer;
     transition: background 0.15s ease;
     text-align: left;
-    height: 40px;           /* Fixed height */
+    height: 40px;
     min-height: 40px;
     max-height: 40px;
     box-sizing: border-box;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.08);
+      background: rgba(0, 0, 0, 0.05);
     }
 
     &.selected {
-      background: rgba(184, 115, 51, 0.15);
+      background: rgba(0, 0, 0, 0.08);
 
       .font-name {
-        color: #B87333;
+        color: var(--c1);
+        font-weight: 700;
       }
     }
 
@@ -339,9 +316,9 @@
   }
 
   .font-name {
-    font-size: 16px !important;  /* Fixed font size */
+    font-size: 16px !important;
     line-height: 1.2 !important;
-    color: white;
+    color: var(--c1);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -349,10 +326,10 @@
   }
 
   .font-category {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 0.35rem;
-    color: rgba(255, 255, 255, 0.4);
+    font-family: '8bitwonder', monospace;
+    font-size: 1rem;
+    color: rgba(0, 0, 0, 0.3);
     text-transform: uppercase;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.04em;
   }
 </style>

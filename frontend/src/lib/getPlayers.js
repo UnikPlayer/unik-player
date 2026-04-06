@@ -18,7 +18,7 @@ for (const [path, module] of Object.entries(playerModules)) {
 
 // Backend API base URL
 function getApiBase() {
-  if (typeof window === 'undefined') return 'http://localhost:27272';
+  if (typeof window === 'undefined') return 'http://192.168.1.132:27272';
   const port = window.location.port;
   // Dev mode - proxy через Vite или напрямую на backend
   if (port === '7270' || port === '5173') return '';

@@ -15,42 +15,49 @@
         />
 
         
-		<link rel="modulepreload" href="/_app/immutable/entry/start.35QCn5fo.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/CRtvU1K9.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/CVDt0QOw.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/BD5zbwfx.js">
-		<link rel="modulepreload" href="/_app/immutable/entry/app.Dv3_XYAH.js">
+		<link rel="modulepreload" href="/_app/immutable/entry/start.Cl3swxRA.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/Ze5IhhzW.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/V1w9oyzN.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/DGSWoXdC.js">
+		<link rel="modulepreload" href="/_app/immutable/entry/app.D_RVKcVP.js">
 		<link rel="modulepreload" href="/_app/immutable/chunks/PPVm8Dsz.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/CKR-9ViA.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/D7KLXbSg.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/BuO4YCOa.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/CYHix89s.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/CjhXmZKN.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/B-g1qqDz.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/C3IeRfg6.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/CR3SO641.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/CUaCzpqo.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/BUKPqDfb.js">
     </head>
 
     <body data-sveltekit-preload-data="hover">
         <div>
 			<script>
 				{
-					__sveltekit_z14t99 = {
+					__sveltekit_1pltzne = {
 						base: ""
 					};
 
 					const element = document.currentScript.parentElement;
 
 					Promise.all([
-						import("/_app/immutable/entry/start.35QCn5fo.js"),
-						import("/_app/immutable/entry/app.Dv3_XYAH.js")
+						import("/_app/immutable/entry/start.Cl3swxRA.js"),
+						import("/_app/immutable/entry/app.D_RVKcVP.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element);
 					});
 				}
 			</script>
 		</div>
-        <!-- <script src="/index.js"></script> -->
     </body>
 
     <style>
+        @font-face {
+            font-family: '8bitwonder';
+            src: url('/fonts/8bitwonder.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+
         @font-face {
             font-family: "Press Start 2P";
             src: url("/fonts/PressStart2P-Regular.ttf") format("truetype");
@@ -59,32 +66,50 @@
             font-display: swap;
         }
 
-        /* Пример подключения своего шрифта:
-	   1. Положи файл в frontend/static/fonts/MyFont.ttf
-	   2. Раскомментируй и замени названия ниже
-	   3. Добавь 'MyFont' в список availableFonts в Editor.svelte
-
-	@font-face {
-		font-family: 'MyFont';
-		src: url('/fonts/MyFont.ttf') format('truetype');
-		font-weight: 400;
-		font-style: normal;
-		font-display: swap;
-	}
-	*/
+        @font-face {
+            font-family: "Keleti";
+            src: url("/fonts/Keleti-Regular.ttf") format("truetype");
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
 
         :root {
-            /* === SITE COLORS (static, used in UI) === */
+            /* === FONTS === */
+            --font-ui: '8bitwonder', monospace;
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-body: 'Rubik', sans-serif;
+
+            /* === Cloud Design System === */
+            --c1: #0a0a0a;
+            --c2: #ffffff;
+            --ca: #ee22cc;
+            --c-cloud: #f5f5f5;
+            --c-cloud-outline: #0a0a0a;
+            --c-cloud-storm: #8c8c9b;
+            --c-err: #2d3255;
+            --c-err-outline: #0f0f23;
+            --c-err-text: #ffffff;
+            --c-field: #f5f5f5;
+            --c-text: #111111;
+            --c-text-muted: rgba(0,0,0,0.25);
+            --c-backdrop: rgba(0,0,0,0.65);
+
+            /* === Legacy site colors (for player widgets compatibility) === */
             --site-background: #000000;
             --site-accent: #b87333;
+            --site-accent-rgb: 184, 115, 51;
             --site-accent-light: #d4944a;
             --site-accent-dark: #8b5a2b;
             --site-text: #f1ffe7;
             --site-text-muted: rgba(255, 255, 255, 0.5);
             --site-border: rgba(255, 255, 255, 0.1);
+            --site-border-subtle: rgba(255, 255, 255, 0.05);
             --site-glass: rgba(255, 255, 255, 0.05);
+            --site-error: #ef4444;
+            --site-error-rgb: 239, 68, 68;
 
-            /* Legacy site colors */
+            /* Legacy */
             --background: #000000;
             --foreground: #6290c3;
             --foreground2: #c2e7da;
@@ -92,26 +117,18 @@
             --special2: #baff29;
 
             /* === PLAYER COLORS (dynamic, Vibrant.js will override) === */
-            --vibrant: #d4944a;
-            --lightVibrant: #f5deb3;
-            --darkVibrant: #5c4033;
-            --muted: #8b6914;
-            --lightMuted: #b87333;
-            --darkMuted: rgba(20, 15, 10, 0.9);
+            --vibrant: #555555;
+            --lightVibrant: #cccccc;
+            --darkVibrant: #222222;
+            --muted: #888888;
+            --lightMuted: #aaaaaa;
+            --darkMuted: rgba(10, 10, 10, 0.9);
         }
 
-        h1,
-        h2,
-        h3,
-        h4,
-        h5,
-        h6,
-        p,
-        div,
-        body,
-        html {
-            font-family: Sansation, Garamond, sans-serif;
-            color: var(--special);
+        html,
+        body {
+            font-family: var(--font-ui);
+            color: var(--c-text);
         }
 
         h2 > * {

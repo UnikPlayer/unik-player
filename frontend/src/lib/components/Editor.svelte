@@ -1,5 +1,6 @@
 <script>
     import { fly, fade } from "svelte/transition";
+    import { onMount, tick } from "svelte";
     import {
         editorOpen,
         editingPlayer,
@@ -39,7 +40,7 @@
     const isBrowser = typeof window !== "undefined";
     const API_BASE =
         isBrowser && window.location.port === "5173"
-            ? "http://localhost:27272"
+            ? "http://192.168.1.132:27272"
             : "";
 
     let playerComponent = null;
@@ -61,6 +62,64 @@
     // Validation error dialog state
     let showValidationErrors = false;
     let validationErrors = [];
+
+    // Cloud canvas system
+    let edCloudCv = null;
+    let edCloudWrap = null;
+    let edBlobs = null;
+    let edMx = -9999, edMy = -9999;
+
+    class EdCloudBlob {
+        constructor(x,y,r){
+            this.hx=x;this.hy=y;this.r=r;this.dx=0;this.dy=0;this.vx=0;this.vy=0;
+            this.wph1=Math.random()*Math.PI*2;this.wph2=Math.random()*Math.PI*2;
+            this.wamp=0.15+Math.random()*0.2;
+        }
+        update(mx,my,t){
+            const wx=Math.sin(t*.008+this.wph1)*this.wamp;
+            const wy=Math.cos(t*.006+this.wph2)*this.wamp*0.7;
+            const px=this.hx+this.dx,py=this.hy+this.dy;
+            const ex=px-mx,ey=py-my,d=Math.sqrt(ex*ex+ey*ey)+.001;
+            const zone=this.r*4;
+            if(d<zone){const f=Math.pow(1-d/zone,1.5)*3.5;this.vx+=(ex/d)*f;this.vy+=(ey/d)*f;}
+            this.vx+=-(this.dx-wx)*.08;this.vy+=-(this.dy-wy)*.08;
+            this.vx*=.78;this.vy*=.78;this.dx+=this.vx;this.dy+=this.vy;
+        }
+    }
+
+    function makeEditorBlobs(WS,HS,padS){
+        const b=[],cx=WS/2+padS,cy=HS/2+padS;
+        // Dense grid — guarantees cloud behind every pixel of content
+        const spheres=[];
+        // Fill a rectangular grid spanning the full editor area
+        const cols=7, rows=7;
+        for(let iy=0;iy<rows;iy++){
+            for(let ix=0;ix<cols;ix++){
+                const gx=(ix/(cols-1)-0.5)*0.88;
+                const gy=(iy/(rows-1)-0.5)*0.88;
+                // Larger blobs in center, smaller at edges
+                const dist=Math.sqrt(gx*gx+gy*gy);
+                const r=0.10+0.08*(1-dist);
+                const n=8+Math.round(6*(1-dist));
+                spheres.push({x:gx,y:gy,r,n});
+            }
+        }
+        // Extra bumps at edges for organic cloud shape
+        for(let i=0;i<20;i++){
+            const a=Math.PI*2*i/20;
+            spheres.push({x:Math.cos(a)*0.46,y:Math.sin(a)*0.46,r:0.08,n:6});
+        }
+        const SCALE=0.95;
+        for(const sp of spheres){
+            const scx=cx+sp.x*WS*SCALE,scy=cy+sp.y*HS*SCALE;
+            const sr=sp.r*Math.min(WS,HS)*SCALE;
+            for(let i=0;i<sp.n;i++){
+                const a=Math.random()*Math.PI*2,dist=Math.pow(Math.random(),.55);
+                b.push(new EdCloudBlob(scx+Math.cos(a)*sr*dist,scy+Math.sin(a)*sr*dist, 3+Math.random()*5));
+            }
+        }
+        return b;
+    }
 
     // Snippets for custom player editor
     let copiedSnippet = null;
@@ -501,6 +560,8 @@
         showValidationErrors = false;
         validationErrors = [];
         editorIframeEl = null;
+        edBlobs = null;
+        edCanvasReady = false;
         editorOpen.set(false);
         editingPlayer.set(null);
         editingPlayerIsCustom.set(false);
@@ -546,12 +607,12 @@
         if (!editorIframeEl || !isCustomPlayer) return;
         try {
             const colors = previewColors || {
-                vibrant: "#D4944A",
-                lightVibrant: "#F5DEB3",
-                darkVibrant: "#5C4033",
-                muted: "#8B6914",
-                lightMuted: "#B87333",
-                darkMuted: "rgba(20,15,10,0.9)",
+                vibrant: "#555555",
+                lightVibrant: "#cccccc",
+                darkVibrant: "#222222",
+                muted: "#888888",
+                lightMuted: "#aaaaaa",
+                darkMuted: "rgba(10, 10, 10, 0.9)",
             };
             editorIframeEl.contentWindow.postMessage(
                 { type: "unik-update", colors, font: localFont },
@@ -637,7 +698,7 @@ window.addEventListener('message', function(e) {
         if (!html) return "";
 
         const demoThumb =
-            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%231a1a2e" width="100" height="100"/%3E%3Ctext x="50" y="55" text-anchor="middle" fill="%23B87333" font-size="14"%3EDEMO%3C/text%3E%3C/svg%3E';
+            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23111111" width="100" height="100"/%3E%3Ctext x="50" y="55" text-anchor="middle" fill="%23ffffff" font-size="14"%3EDEMO%3C/text%3E%3C/svg%3E';
 
         const title = liveTitle || "Demo Track Title";
         const artist = liveArtist || "Demo Artist";
@@ -659,12 +720,12 @@ window.addEventListener('message', function(e) {
 
         // Generate color CSS
         const colorVars = colors || {
-            vibrant: "#D4944A",
-            lightVibrant: "#F5DEB3",
-            darkVibrant: "#5C4033",
-            muted: "#8B6914",
-            lightMuted: "#B87333",
-            darkMuted: "rgba(20, 15, 10, 0.9)",
+            vibrant: "#555555",
+            lightVibrant: "#cccccc",
+            darkVibrant: "#222222",
+            muted: "#888888",
+            lightMuted: "#aaaaaa",
+            darkMuted: "rgba(10, 10, 10, 0.9)",
         };
 
         const fontCSS = fontFamily
@@ -706,10 +767,143 @@ window.addEventListener('message', function(e) {
 
         return processed;
     }
+
+    // Cloud canvas rendering
+    const ED_S = 8;
+    const ED_PAD = 200;
+    let edCanvasReady = false;
+    const _edOff1 = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+    const _edOff2 = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+    const _edOff3 = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+
+    onMount(() => {
+        const cs = getComputedStyle(document.documentElement);
+        function parseCSSColor(varName){
+            const v=cs.getPropertyValue(varName).trim();
+            if(!v)return[0,0,0];
+            if(v.startsWith('#')){
+                const h=v.replace('#','');
+                if(h.length===3)return[parseInt(h[0]+h[0],16),parseInt(h[1]+h[1],16),parseInt(h[2]+h[2],16)];
+                return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
+            }
+            const m=v.match(/(\d+)/g);
+            return m?[+m[0],+m[1],+m[2]]:[0,0,0];
+        }
+        const cCloud=parseCSSColor('--c-cloud');
+        const cOutline=parseCSSColor('--c-cloud-outline');
+
+        function renderEdCloud(canvas, t){
+            if(!canvas || !edCloudWrap) return;
+            const el = edCloudWrap.querySelector('.editor-container');
+            if(!el) return;
+            const ew=el.offsetWidth, eh=el.offsetHeight;
+            if(ew<2||eh<2) return;
+
+            if(!edCanvasReady){
+                canvas.style.left=-ED_PAD+'px';
+                canvas.style.top=-ED_PAD+'px';
+                canvas.style.width=(ew+ED_PAD*2)+'px';
+                canvas.style.height=(eh+ED_PAD*2)+'px';
+                edCanvasReady=true;
+            }
+
+            const TW=Math.ceil((ew+ED_PAD*2)/ED_S), TH=Math.ceil((eh+ED_PAD*2)/ED_S);
+            const WS=Math.ceil(ew/ED_S), HS=Math.ceil(eh/ED_S);
+            const padS=Math.ceil(ED_PAD/ED_S);
+
+            if(!edBlobs) edBlobs=makeEditorBlobs(WS,HS,padS);
+
+            if(_edOff1.width!==TW||_edOff1.height!==TH){_edOff1.width=TW;_edOff1.height=TH;}
+            if(_edOff2.width!==TW||_edOff2.height!==TH){_edOff2.width=TW;_edOff2.height=TH;}
+            if(_edOff3.width!==TW||_edOff3.height!==TH){_edOff3.width=TW;_edOff3.height=TH;}
+            if(canvas.width!==TW||canvas.height!==TH){canvas.width=TW;canvas.height=TH;}
+
+            const c1=_edOff1.getContext('2d');
+            // Normal pass — blobs at normal size
+            c1.clearRect(0,0,TW,TH);
+            for(const bl of edBlobs){
+                const bx=bl.hx+bl.dx,by=bl.hy+bl.dy;
+                const g=c1.createRadialGradient(bx,by,0,bx,by,bl.r);
+                g.addColorStop(0,'rgba(255,255,255,1)');
+                g.addColorStop(.5,'rgba(255,255,255,.85)');
+                g.addColorStop(1,'rgba(255,255,255,0)');
+                c1.fillStyle=g;c1.beginPath();c1.arc(bx,by,bl.r,0,Math.PI*2);c1.fill();
+            }
+            const c2=_edOff2.getContext('2d');
+            c2.clearRect(0,0,TW,TH);
+            c2.filter='blur(2.5px)';c2.drawImage(_edOff1,0,0);c2.filter='none';
+            const imgN=c2.getImageData(0,0,TW,TH);
+
+            // Grown pass — slightly larger blobs for outline
+            c1.clearRect(0,0,TW,TH);
+            for(const bl of edBlobs){
+                const bx=bl.hx+bl.dx,by=bl.hy+bl.dy,br=bl.r+1;
+                const g=c1.createRadialGradient(bx,by,0,bx,by,br);
+                g.addColorStop(0,'rgba(255,255,255,1)');
+                g.addColorStop(.5,'rgba(255,255,255,.85)');
+                g.addColorStop(1,'rgba(255,255,255,0)');
+                c1.fillStyle=g;c1.beginPath();c1.arc(bx,by,br,0,Math.PI*2);c1.fill();
+            }
+            const c3=_edOff3.getContext('2d');
+            c3.clearRect(0,0,TW,TH);
+            c3.filter='blur(2.5px)';c3.drawImage(_edOff1,0,0);c3.filter='none';
+            const imgG=c3.getImageData(0,0,TW,TH);
+
+            // Two-pass threshold: outline = grown && !normal
+            const dN=imgN.data,dG=imgG.data;
+            const out=c2.createImageData(TW,TH);
+            const od=out.data;
+            for(let i=0;i<dN.length;i+=4){
+                const vN=dN[i],vG=dG[i];
+                const inNorm=vN>55,inGrown=vG>55;
+                if(inGrown&&!inNorm){od[i]=cOutline[0];od[i+1]=cOutline[1];od[i+2]=cOutline[2];od[i+3]=255;}
+                else if(inNorm){od[i]=cCloud[0];od[i+1]=cCloud[1];od[i+2]=cCloud[2];od[i+3]=255;}
+            }
+            c2.putImageData(out,0,0);
+            const dctx=canvas.getContext('2d');
+            dctx.imageSmoothingEnabled=false;
+            dctx.clearRect(0,0,TW,TH);
+            dctx.drawImage(_edOff2,0,0,TW,TH);
+        }
+
+        function onEdMM(e){
+            if(!edCloudCv) return;
+            const r=edCloudCv.getBoundingClientRect();
+            if(r.width<1) return;
+            edMx=(e.clientX-r.left)/r.width*edCloudCv.width;
+            edMy=(e.clientY-r.top)/r.height*edCloudCv.height;
+        }
+        function onEdML(){ edMx=-9999;edMy=-9999; }
+        window.addEventListener('mousemove',onEdMM);
+        window.addEventListener('mouseleave',onEdML);
+
+        let raf,last=0,edTick=0;
+        function frame(ts){
+            raf=requestAnimationFrame(frame);
+            if(!$editorOpen){ edCanvasReady=false; edBlobs=null; return; }
+            if(ts-last<16)return;last=ts;edTick++;
+            if(edBlobs) for(const b of edBlobs) b.update(edMx,edMy,edTick);
+            renderEdCloud(edCloudCv,edTick);
+        }
+        raf=requestAnimationFrame(frame);
+
+        return ()=>{
+            cancelAnimationFrame(raf);
+            window.removeEventListener('mousemove',onEdMM);
+            window.removeEventListener('mouseleave',onEdML);
+            _edOff1.width = _edOff1.height = 0;
+            _edOff2.width = _edOff2.height = 0;
+            _edOff3.width = _edOff3.height = 0;
+            if (edCloudCv) edCloudCv.width = edCloudCv.height = 0;
+            edBlobs = null;
+        };
+    });
 </script>
 
 {#if $editorOpen}
     <div class="editor-overlay" transition:fade={{ duration: 200 }}>
+        <div class="editor-cloud-wrap" bind:this={edCloudWrap}>
+            <canvas bind:this={edCloudCv} class="editor-cloud-cv"></canvas>
         <div class="editor-container" transition:fly={{ y: 50, duration: 300 }}>
             <!-- Header -->
             <header class="editor-header">
@@ -785,15 +979,6 @@ window.addEventListener('message', function(e) {
                             <div class="control-header">
                                 <span class="control-icon"></span>
                                 <span>COLOR_SYNC</span>
-                                {#if !isCustomPlayer}
-                                    <button
-                                        class="file-info-btn"
-                                        on:click={showStylesPath}
-                                        title="Open styles file location"
-                                    >
-                                        [EDIT FILE]
-                                    </button>
-                                {/if}
                             </div>
                             <ColorPicker
                                 bind:mode={localColorMode}
@@ -847,6 +1032,14 @@ window.addEventListener('message', function(e) {
                                     title="Open in external editor"
                                 >
                                     [EDIT EXTERNAL]
+                                </button>
+                            {:else}
+                                <button
+                                    class="file-info-btn"
+                                    on:click={showStylesPath}
+                                    title="Open styles file location"
+                                >
+                                    [EDIT FILE]
                                 </button>
                             {/if}
                         </div>
@@ -936,6 +1129,7 @@ window.addEventListener('message', function(e) {
                 </button>
             </footer>
         </div>
+        </div>
     </div>
 {/if}
 
@@ -955,32 +1149,39 @@ window.addEventListener('message', function(e) {
         position: fixed;
         inset: 0;
         z-index: 1000;
-        background: rgba(5, 5, 10, 0.95);
-        backdrop-filter: blur(20px);
+        background: var(--c-backdrop, rgba(0, 0, 0, 0.65));
+        backdrop-filter: blur(8px);
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 2rem;
     }
 
-    .editor-container {
+    .editor-cloud-wrap {
+        position: relative;
         width: 100%;
         max-width: 1400px;
         height: 90vh;
         max-height: 900px;
-        background: linear-gradient(
-            180deg,
-            rgba(15, 15, 20, 0.98) 0%,
-            rgba(10, 10, 15, 0.98) 100%
-        );
-        border: 1px solid rgba(184, 115, 51, 0.3);
-        border-radius: 4px;
+    }
+
+    .editor-cloud-cv {
+        position: absolute;
+        image-rendering: pixelated;
+        display: block;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .editor-container {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        height: 100%;
+        background: transparent;
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        box-shadow:
-            0 0 100px rgba(184, 115, 51, 0.1),
-            inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
 
     // Header
@@ -989,8 +1190,6 @@ window.addEventListener('message', function(e) {
         align-items: center;
         justify-content: space-between;
         padding: 1rem 1.5rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        background: rgba(0, 0, 0, 0.3);
     }
 
     .header-left {
@@ -1000,24 +1199,23 @@ window.addEventListener('message', function(e) {
     }
 
     .header-icon {
-        color: #b87333;
-        font-family: "Press Start 2P", monospace;
+        color: var(--c1);
         font-size: 1rem;
     }
 
     .header-title {
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.7rem;
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
         font-weight: 400;
-        color: white;
-        letter-spacing: 0.02em;
+        color: var(--c1);
+        letter-spacing: 0.04em;
     }
 
     .header-subtitle {
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.5rem;
-        color: #b87333;
-        letter-spacing: 0.05em;
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
+        color: rgba(0, 0, 0, 0.7);
+        letter-spacing: 0.06em;
     }
 
     .header-right {
@@ -1027,15 +1225,15 @@ window.addEventListener('message', function(e) {
     }
 
     .header-tab {
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.5rem;
-        color: rgba(255, 255, 255, 0.5);
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
+        color: rgba(0, 0, 0, 0.6);
         cursor: pointer;
         transition: color 0.2s;
 
         &:hover,
         &.active {
-            color: white;
+            color: var(--c1);
         }
 
         &.active {
@@ -1049,18 +1247,16 @@ window.addEventListener('message', function(e) {
         align-items: center;
         gap: 0.5rem;
         padding: 0.4rem 0.8rem;
-        border: 1px solid rgba(184, 115, 51, 0.5);
-        border-radius: 4px;
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.45rem;
-        color: #b87333;
+        border: 1px solid var(--c1);
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
+        color: rgba(0, 0, 0, 0.7);
     }
 
     .status-dot {
         width: 6px;
         height: 6px;
-        background: #b87333;
-        border-radius: 50%;
+        background: var(--c1);
         animation: pulse 2s infinite;
     }
 
@@ -1082,6 +1278,7 @@ window.addEventListener('message', function(e) {
         gap: 1.5rem;
         padding: 1.5rem;
         overflow: hidden;
+        background: transparent;
     }
 
     // Preview Panel
@@ -1095,102 +1292,35 @@ window.addEventListener('message', function(e) {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.5rem;
-        color: rgba(255, 255, 255, 0.5);
-        letter-spacing: 0.02em;
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
+        color: var(--c1);
+        letter-spacing: 0.04em;
     }
 
     .panel-badge {
-        color: #b87333;
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.45rem;
+        color: var(--c1);
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
     }
 
     .preview-area {
         flex: 1;
         position: relative;
         overflow: hidden;
-        background: rgba(10, 10, 15, 0.8);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 4px;
+        background: transparent;
         padding: 2rem;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         gap: 2rem;
-
-        // Color blobs with movement
-        &::before {
-            content: "";
-            position: absolute;
-            inset: -50%;
-            z-index: 0;
-            pointer-events: none;
-            background:
-                radial-gradient(
-                    ellipse 150px 120px at 20% 30%,
-                    var(--vibrant, #b87333) 0%,
-                    transparent 70%
-                ),
-                radial-gradient(
-                    ellipse 120px 150px at 80% 25%,
-                    var(--lightVibrant, #d4944a) 0%,
-                    transparent 70%
-                ),
-                radial-gradient(
-                    ellipse 180px 100px at 70% 75%,
-                    var(--site-accent, #b87333) 0%,
-                    transparent 70%
-                ),
-                radial-gradient(
-                    ellipse 100px 130px at 25% 70%,
-                    var(--muted, #8b6914) 0%,
-                    transparent 70%
-                );
-            opacity: 0.2;
-            filter: blur(40px);
-            animation: blobsMove 15s ease-in-out infinite alternate;
-        }
-
-        // Scanlines overlay
-        &::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            z-index: 1;
-            pointer-events: none;
-            background: repeating-linear-gradient(
-                0deg,
-                transparent,
-                transparent 2px,
-                rgba(255, 255, 255, 0.01) 2px,
-                rgba(255, 255, 255, 0.01) 4px
-            );
-        }
-    }
-
-    @keyframes blobsMove {
-        0% {
-            transform: translate(0, 0) rotate(0deg);
-        }
-        33% {
-            transform: translate(10%, -5%) rotate(5deg);
-        }
-        66% {
-            transform: translate(-5%, 10%) rotate(-3deg);
-        }
-        100% {
-            transform: translate(5%, 5%) rotate(2deg);
-        }
     }
 
     .preview-frame {
         position: relative;
         z-index: 2;
         transform: scale(1);
-        /* Colors inherited from :root (Vibrant.js) or set via inline style (static mode) */
     }
 
     /* Center all direct children (both Svelte players and custom iframes) */
@@ -1206,7 +1336,6 @@ window.addEventListener('message', function(e) {
         height: 300px;
         border: none;
         background: transparent;
-        border-radius: 8px;
     }
 
     // Controls Panel
@@ -1236,24 +1365,23 @@ window.addEventListener('message', function(e) {
         flex: 1;
         margin-top: 0.5rem;
         padding: 0.5rem 1rem;
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.5rem;
-        color: rgba(255, 255, 255, 0.5);
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 4px;
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
+        color: var(--c1);
+        background: transparent;
+        border: 1px solid var(--c1);
         cursor: pointer;
         transition:
             color 0.1s,
             background 0.1s,
             border-color 0.1s;
-        letter-spacing: 0.15em;
+        letter-spacing: 0.1em;
         transform-origin: center center;
 
         &:hover {
-            color: #b87333;
-            background: rgba(184, 115, 51, 0.1);
-            border-color: rgba(184, 115, 51, 0.3);
+            color: var(--c1);
+            background: rgba(0, 0, 0, 0.06);
+            border-color: var(--c1);
         }
 
         &:global(.pressing) {
@@ -1277,9 +1405,8 @@ window.addEventListener('message', function(e) {
     }
 
     .control-group {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 4px;
+        background: transparent;
+        border: 1px solid var(--c1);
         padding: 1rem;
     }
 
@@ -1288,30 +1415,28 @@ window.addEventListener('message', function(e) {
         align-items: center;
         gap: 0.5rem;
         margin-bottom: 0.75rem;
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.5rem;
-        color: rgba(255, 255, 255, 0.6);
-        letter-spacing: 0.05em;
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
+        color: var(--c1);
+        letter-spacing: 0.06em;
     }
 
     .control-icon {
-        width: 20px;
-        height: 20px;
-        background: rgba(184, 115, 51, 0.2);
-        border-radius: 2px;
+        width: 24px;
+        height: 24px;
+        background: rgba(0, 0, 0, 0.08);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.5rem;
-        color: #b87333;
+        font-size: 1rem;
+        color: var(--c1);
     }
 
     .scale-value {
         margin-left: auto;
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.45rem;
-        color: #b87333;
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
+        color: var(--c1);
     }
 
     .scale-slider {
@@ -1321,21 +1446,19 @@ window.addEventListener('message', function(e) {
             width: 100%;
             height: 4px;
             appearance: none;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
+            background: rgba(0, 0, 0, 0.1);
             cursor: pointer;
 
             &::-webkit-slider-thumb {
                 appearance: none;
                 width: 14px;
                 height: 14px;
-                background: #b87333;
-                border-radius: 2px;
+                background: var(--c1);
                 cursor: pointer;
                 transition: all 0.2s;
 
                 &:hover {
-                    background: #d4944a;
+                    background: #333;
                     transform: scale(1.1);
                 }
             }
@@ -1343,9 +1466,8 @@ window.addEventListener('message', function(e) {
             &::-moz-range-thumb {
                 width: 14px;
                 height: 14px;
-                background: #b87333;
+                background: var(--c1);
                 border: none;
-                border-radius: 2px;
                 cursor: pointer;
             }
         }
@@ -1353,47 +1475,42 @@ window.addEventListener('message', function(e) {
 
     .edit-external-btn {
         margin-left: auto !important;
-        background: rgba(184, 115, 51, 0.12) !important;
-        border: 1px solid rgba(184, 115, 51, 0.6) !important;
-        border-radius: 3px !important;
+        background: transparent !important;
+        border: 1px solid var(--c1) !important;
         padding: 0.3rem 0.7rem !important;
-        font-family: "JetBrains Mono", monospace !important;
-        font-size: 0.65rem !important;
-        color: #d4944a !important;
+        font-family: '8bitwonder', monospace !important;
+        font-size: 1rem !important;
+        color: var(--c1) !important;
         cursor: pointer;
         letter-spacing: 0.05em;
         transition: all 0.2s;
 
         &:hover {
-            background: rgba(184, 115, 51, 0.25) !important;
-            border-color: #b87333 !important;
-            color: #f0b060 !important;
+            background: rgba(0, 0, 0, 0.06) !important;
+            border-color: var(--c1) !important;
         }
     }
 
     .file-info-btn {
         margin-left: auto;
         background: none;
-        border: 1px solid rgba(184, 115, 51, 0.3);
-        border-radius: 2px;
+        border: 1px solid var(--c1);
         padding: 0.2rem 0.5rem;
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.4rem;
-        color: #b87333;
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
+        color: var(--c1);
         cursor: pointer;
         transition: all 0.2s;
 
         &:hover {
-            background: rgba(184, 115, 51, 0.15);
-            border-color: #b87333;
+            background: rgba(0, 0, 0, 0.06);
+            border-color: var(--c1);
         }
     }
 
-    // Custom player info section
     .custom-player-info {
-        background: rgba(184, 115, 51, 0.05);
-        border: 1px solid rgba(184, 115, 51, 0.2);
-        border-radius: 4px;
+        background: transparent;
+        border: 1px solid var(--c1);
         padding: 1rem;
     }
 
@@ -1402,19 +1519,18 @@ window.addEventListener('message', function(e) {
         align-items: center;
         gap: 0.5rem;
         margin-bottom: 0.75rem;
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.5rem;
-        color: #b87333;
-        letter-spacing: 0.05em;
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
+        color: var(--c1);
+        letter-spacing: 0.06em;
     }
 
     .snippets-hint {
         margin-left: auto;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 0.6rem;
-        color: rgba(255, 255, 255, 0.3);
+        font-family: 'Rubik', sans-serif;
+        font-size: 1rem;
+        color: rgba(0, 0, 0, 0.5);
         font-weight: 400;
-        letter-spacing: 0;
     }
 
     .snippets-grid {
@@ -1429,52 +1545,48 @@ window.addEventListener('message', function(e) {
         align-items: flex-start;
         gap: 0.2rem;
         padding: 0.45rem 0.6rem;
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 3px;
+        background: transparent;
+        border: 1px solid var(--c1);
         cursor: pointer;
         transition: all 0.15s;
         text-align: left;
 
         &:hover {
-            background: rgba(184, 115, 51, 0.1);
-            border-color: rgba(184, 115, 51, 0.4);
+            background: rgba(0, 0, 0, 0.06);
+            border-color: var(--c1);
         }
 
         &.copied {
-            background: rgba(184, 115, 51, 0.2);
-            border-color: #b87333;
+            background: rgba(0, 0, 0, 0.06);
+            border-color: var(--c1);
         }
     }
 
     .snippet-label {
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.38rem;
-        color: rgba(255, 255, 255, 0.5);
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
+        color: rgba(0, 0, 0, 0.6);
         letter-spacing: 0.04em;
 
         .snippet-btn.copied & {
-            color: #b87333;
+            color: var(--c1);
         }
     }
 
     .snippet-code {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 0.65rem;
-        color: #b87333;
-        opacity: 0.85;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 1rem;
+        color: var(--c1);
     }
 
     .custom-badge-small {
         margin-left: auto;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 0.5rem;
-        font-weight: 600;
-        color: #b87333;
-        background: rgba(184, 115, 51, 0.15);
-        border: 1px solid rgba(184, 115, 51, 0.3);
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
+        color: var(--c1);
+        background: rgba(0, 0, 0, 0.06);
+        border: 1px solid var(--c1);
         padding: 0.15rem 0.4rem;
-        border-radius: 2px;
         letter-spacing: 0.05em;
     }
 
@@ -1494,70 +1606,23 @@ window.addEventListener('message', function(e) {
         flex: 1;
         display: flex;
         position: relative;
-        border-radius: 8px;
         overflow: hidden;
-        background: rgba(10, 10, 15, 0.6);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-
-        &::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            z-index: 0;
-            pointer-events: none;
-            background:
-                radial-gradient(
-                    ellipse 120px 100px at 15% 20%,
-                    var(--vibrant, #b87333) 0%,
-                    transparent 70%
-                ),
-                radial-gradient(
-                    ellipse 100px 120px at 85% 30%,
-                    var(--lightVibrant, #d4944a) 0%,
-                    transparent 70%
-                ),
-                radial-gradient(
-                    ellipse 140px 80px at 60% 80%,
-                    var(--site-accent, #b87333) 0%,
-                    transparent 70%
-                ),
-                radial-gradient(
-                    ellipse 80px 100px at 30% 70%,
-                    var(--muted, #8b6914) 0%,
-                    transparent 70%
-                );
-            opacity: 0.15;
-            filter: blur(30px);
-        }
-
-        &::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            z-index: 1;
-            pointer-events: none;
-            background: linear-gradient(
-                135deg,
-                rgba(255, 255, 255, 0.03) 0%,
-                transparent 50%,
-                rgba(0, 0, 0, 0.05) 100%
-            );
-        }
+        background: rgba(0, 0, 0, 0.85);
+        border: 1px solid var(--c1);
     }
 
     .line-numbers {
         position: relative;
         z-index: 2;
         padding: 1rem 0.75rem;
-        background: rgba(0, 0, 0, 0.2);
-        border-right: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(0, 0, 0, 0.15);
+        border-right: 1px solid var(--c1);
         display: flex;
         flex-direction: column;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 0.7rem;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 1rem;
         line-height: 1.6;
-        color: rgba(255, 255, 255, 0.25);
+        color: rgba(255, 255, 255, 0.2);
         user-select: none;
     }
 
@@ -1569,36 +1634,31 @@ window.addEventListener('message', function(e) {
         background: transparent;
         border: none;
         resize: none;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 0.8rem;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 1rem;
         line-height: 1.6;
-        color: rgba(232, 212, 184, 0.85);
-        text-shadow: 0 0 15px rgba(184, 115, 51, 0.15);
+        color: rgba(212, 238, 255, 0.85);
         outline: none;
 
         &::selection {
-            background: rgba(184, 115, 51, 0.4);
+            background: rgba(100, 100, 255, 0.3);
         }
     }
 
-    // Footer
+    // Footer — transparent, no bar
     .editor-footer {
         display: flex;
         align-items: center;
         justify-content: space-between;
         padding: 1rem 1.5rem;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        background: rgba(0, 0, 0, 0.3);
     }
 
     .footer-btn {
-        font-family: "Press Start 2P", monospace;
-        font-size: 0.5rem;
-        font-weight: 400;
-        letter-spacing: 0.05em;
+        font-family: '8bitwonder', monospace;
+        font-size: 1rem;
+        letter-spacing: 0.06em;
         padding: 0.8rem 1.5rem;
         border: 1px solid;
-        border-radius: 2px;
         cursor: pointer;
         transition:
             color 0.2s,
@@ -1614,13 +1674,13 @@ window.addEventListener('message', function(e) {
 
     .footer-btn.pig-btn {
         background: transparent;
-        border-color: rgba(255, 182, 193, 0.3);
+        border-color: var(--c1);
         font-size: 1.5rem;
         padding: 0.5rem 1rem;
 
         &:hover {
-            border-color: rgba(255, 182, 193, 0.6);
-            background: rgba(255, 182, 193, 0.1);
+            border-color: var(--c1);
+            background: rgba(0, 0, 0, 0.04);
         }
     }
 
@@ -1651,34 +1711,34 @@ window.addEventListener('message', function(e) {
 
     .footer-btn.cancel {
         background: transparent;
-        border-color: rgba(255, 255, 255, 0.3);
-        color: rgba(255, 255, 255, 0.7);
+        border-color: var(--c1);
+        color: var(--c1);
 
         &:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
+            background: rgba(0, 0, 0, 0.04);
+            border-color: var(--c1);
         }
     }
 
     .footer-btn.confirm {
-        background: rgba(184, 115, 51, 0.2);
-        border-color: #b87333;
-        color: #b87333;
+        background: rgba(0, 0, 0, 0.06);
+        border-color: var(--c1);
+        color: var(--c1);
 
         &:hover {
-            background: rgba(184, 115, 51, 0.4);
-            color: #d4944a;
+            background: rgba(0, 0, 0, 0.12);
+            color: #000;
         }
     }
 
     .footer-btn.reset {
         background: transparent;
-        border-color: rgba(239, 68, 68, 0.3);
-        color: #ef4444;
+        border-color: var(--c1);
+        color: var(--c1);
 
         &:hover {
-            background: rgba(239, 68, 68, 0.1);
-            border-color: #ef4444;
+            background: rgba(0, 0, 0, 0.04);
+            border-color: var(--c1);
         }
     }
 </style>
