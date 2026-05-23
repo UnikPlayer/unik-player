@@ -192,7 +192,7 @@
     justify-content: space-between;
     padding: 0.75rem 1rem;
     background: transparent;
-    border: 1px solid rgba(0, 0, 0, 0.12);
+    border: 3px solid rgba(0, 0, 0, 0.12);
     cursor: pointer;
     transition: all 0.2s ease;
     height: 44px;
@@ -227,7 +227,7 @@
     right: 0;
     margin-top: 4px;
     background: rgba(255, 255, 255, 0.97);
-    border: 1px solid rgba(0, 0, 0, 0.15);
+    border: 3px solid rgba(0, 0, 0, 0.15);
     z-index: 100;
     display: flex;
     flex-direction: column;
@@ -237,14 +237,14 @@
 
   .search-box {
     padding: 0.5rem;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    border-bottom: 3px solid rgba(0, 0, 0, 0.08);
   }
 
   .search-input {
     width: 100%;
     padding: 0.5rem 0.75rem;
     background: rgba(0, 0, 0, 0.04);
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    border: 3px solid rgba(0, 0, 0, 0.1);
     color: var(--c1);
     font-family: '8bitwonder', monospace;
     font-size: 1rem;
@@ -288,7 +288,7 @@
     padding: 0.6rem 1rem;
     background: transparent;
     border: none;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    border-bottom: 3px solid rgba(0, 0, 0, 0.06);
     cursor: pointer;
     transition: background 0.15s ease;
     text-align: left;

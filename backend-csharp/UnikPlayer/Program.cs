@@ -1,4 +1,4 @@
-using System.Drawing.Drawing2D;
+﻿using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Net;
 using System.Net.Sockets;
@@ -40,6 +40,7 @@ class Program
     private static string CSS_DIR = "";
     private static string CUSTOM_PLAYERS_DIR = "";
     private static bool DEV_MODE = false;
+    private static bool NO_FRONTEND = false;
 
     // Media filter
     private static string MEDIA_FILTER_FILE = "";
@@ -221,6 +222,9 @@ class Program
         DEV_MODE = env.TryGetValue("DEV_MODE", out var devMode) &&
                    devMode.Equals("true", StringComparison.OrdinalIgnoreCase);
 
+        NO_FRONTEND = env.TryGetValue("NO_FRONTEND", out var noFront) &&
+                      noFront.Equals("true", StringComparison.OrdinalIgnoreCase);
+
         if (DEV_MODE)
         {
             // Dev mode: use local paths relative to project
@@ -268,32 +272,107 @@ class Program
     }
 
     /// <summary>
-    /// Install bundled example players (only those that don't exist yet)
+    /// Locate the example-players source directory (next to the .exe in production,
+    /// or in the project source tree when running via `dotnet run`).
+    /// </summary>
+     static string? FindExamplePlayersDir()
+     {
+         var candidates = new List<string>();
+
+         // Approach 1: Use DEV_DATA_DIR if in dev mode
+         var env = LoadEnvFile();
+         if (DEV_MODE && env.TryGetValue("DEV_DATA_DIR", out var devDataDir))
+         {
+             var devPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, devDataDir, "..", "frontend", "static", "examples"));
+             candidates.Add(devPath);
+         }
+
+         // Approach 2: Try to find unikPlayer directory by going up from AppContext.BaseDirectory
+         // Structure: .../unikPlayer/backend-csharp/UnikPlayer/bin/Debug/.../win-x64/
+         // Target:    .../unikPlayer/frontend/static/examples/
+         var baseDir = AppContext.BaseDirectory;
+         for (int up = 1; up <= 8; up++)
+         {
+             var path = baseDir;
+             for (int i = 0; i < up; i++)
+                 path = Path.GetDirectoryName(path) ?? path;
+             
+             // Check if this is the unikPlayer root (has frontend folder)
+             var testUnik = Path.Combine(path, "frontend", "static", "examples");
+             candidates.Add(testUnik);
+             
+             // Also check unikPlayer subfolder
+             var testUnikSub = Path.Combine(path, "unikPlayer", "frontend", "static", "examples");
+             candidates.Add(testUnikSub);
+         }
+
+         // Approach 3: Relative to current directory
+         var curDir = Directory.GetCurrentDirectory();
+         candidates.Add(Path.Combine(curDir, "frontend", "static", "examples"));
+         candidates.Add(Path.Combine(curDir, "..", "frontend", "static", "examples"));
+         candidates.Add(Path.Combine(curDir, "..", "..", "frontend", "static", "examples"));
+         candidates.Add(Path.Combine(curDir, "unikPlayer", "frontend", "static", "examples"));
+
+         // Approach 4: Absolute path (most reliable for your setup)
+         candidates.Add(@"C:\Users\000-d\Desktop\JShit\Unik player reps\unikPlayer\frontend\static\examples");
+
+         // Legacy example-players directory (backend) - fallback
+         candidates.Add(Path.Combine(baseDir, "example-players"));
+         candidates.Add(Path.Combine(curDir, "example-players"));
+
+         foreach (var p in candidates)
+         {
+             if (string.IsNullOrEmpty(p)) continue;
+             var full = Path.GetFullPath(p);
+             if (Directory.Exists(full))
+             {
+                 Console.WriteLine($"[Examples] Found examples directory: {full}");
+                 return full;
+             }
+         }
+         return null;
+     }
+
+    /// <summary>
+    /// Install bundled example players from `example-players/*.html`.
+    /// `.backup.html` is always refreshed with the latest factory version,
+    /// `.html` (user's editable copy) is created only if missing.
     /// </summary>
     static void InstallExamplePlayers()
     {
         try
         {
-            int installed = 0;
-            foreach (var example in EXAMPLE_PLAYERS)
+            var sourceDir = FindExamplePlayersDir();
+            if (sourceDir == null)
             {
-                var htmlPath = Path.Combine(CUSTOM_PLAYERS_DIR, $"{example.Key}.html");
-                if (File.Exists(htmlPath))
-                {
-                    continue; // Don't overwrite user's file
-                }
-
-                var backupPath = Path.Combine(CUSTOM_PLAYERS_DIR, $"{example.Key}.backup.html");
-                File.WriteAllText(htmlPath, example.Value);
-                File.WriteAllText(backupPath, example.Value);
-                Console.WriteLine($"[Examples] Installed: {example.Key}");
-                installed++;
+                Console.WriteLine("[Examples] example-players directory not found, skipping install");
+                return;
             }
 
-            if (installed > 0)
-                Console.WriteLine($"[Examples] Installed {installed} new example players");
-            else
-                Console.WriteLine($"[Examples] All examples already present");
+            int created = 0, refreshed = 0;
+            foreach (var srcPath in Directory.GetFiles(sourceDir, "*.html"))
+            {
+                var name = Path.GetFileNameWithoutExtension(srcPath);
+                if (string.IsNullOrEmpty(name)) continue;
+
+                var content = File.ReadAllText(srcPath);
+                var htmlPath = Path.Combine(CUSTOM_PLAYERS_DIR, $"{name}.html");
+                var backupPath = Path.Combine(CUSTOM_PLAYERS_DIR, $"{name}.backup.html");
+
+                // Always refresh backup with latest factory version (used by Reset)
+                File.WriteAllText(backupPath, content);
+                refreshed++;
+
+                // Create user's editable copy only if missing
+                if (!File.Exists(htmlPath))
+                {
+                    File.WriteAllText(htmlPath, content);
+                    created++;
+                    Console.WriteLine($"[Examples] Installed new player: {name}");
+                }
+            }
+
+            Console.WriteLine($"[Examples] Refreshed {refreshed} backup(s), created {created} new player(s) from {sourceDir}");
         }
         catch (Exception ex)
         {
@@ -301,208 +380,6 @@ class Program
         }
     }
 
-    // Bundled example players
-    static readonly Dictionary<string, string> EXAMPLE_PLAYERS = new()
-    {
-        ["ProgressBar"] = @"<!DOCTYPE html>
-<html lang=""en"">
-<head>
-  <meta charset=""UTF-8"">
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
-  <title>Custom Player with Progress</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: ""Rubik"", sans-serif; background: transparent; }
-    .player {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      padding: 0.5rem;
-      background: var(--darkMuted);
-      border: 2px solid var(--vibrant);
-      border-radius: 0.5rem;
-      width: 22rem;
-    }
-    .thumbnail {
-      width: 3.5rem;
-      height: 3.5rem;
-      border-radius: 0.35rem;
-      object-fit: cover;
-      border: 2px solid var(--lightMuted);
-      flex-shrink: 0;
-    }
-    .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
-    .title {
-      font-size: 1rem;
-      font-weight: 600;
-      color: var(--lightVibrant);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .artist {
-      font-size: 0.75rem;
-      color: var(--lightVibrant);
-      opacity: 0.6;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .progress-container { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.2rem; }
-    .time { font-size: 0.6rem; color: var(--lightVibrant); opacity: 0.5; min-width: 2rem; }
-    .time.total { text-align: right; }
-    .progress-bar {
-      flex: 1;
-      height: 3px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    .progress-fill {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, var(--vibrant), var(--lightVibrant));
-      border-radius: 2px;
-      transition: width 0.5s linear;
-    }
-  </style>
-</head>
-<body>
-<div class=""player"">
-  <img class=""thumbnail"" src=""{{thumbnail}}"" alt="""">
-  <div class=""info"">
-    <div class=""title"">{{title}}</div>
-    <div class=""artist"">{{artist}}</div>
-    <div class=""progress-container"">
-      <span class=""time"" data-bind=""currentTime"">0:00</span>
-      <div class=""progress-bar"">
-        <div class=""progress-fill"" data-bind=""progress-width""></div>
-      </div>
-      <span class=""time total"" data-bind=""totalTime"">0:00</span>
-    </div>
-  </div>
-</div>
-</body>
-</html>"
-        ,
-        ["Showcase"] = @"<!DOCTYPE html>
-<html lang=""en"">
-<head>
-  <meta charset=""UTF-8"">
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
-  <title>Showcase Player</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: transparent; }
-
-    .card {
-      position: relative;
-      width: 20rem;
-      border-radius: 0.75rem;
-      overflow: hidden;
-      background: var(--darkMuted);
-      border: 1px solid var(--muted);
-      box-shadow: 0 0 20px rgba(0,0,0,0.4);
-    }
-
-    .art {
-      position: relative;
-      width: 100%;
-      height: 8rem;
-      overflow: hidden;
-    }
-    .art img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-    .art::after {
-      content: '';
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 50%;
-      background: linear-gradient(transparent, var(--darkMuted));
-    }
-
-    .body { padding: 0.6rem 0.8rem 0.5rem; }
-
-    .title {
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--lightVibrant);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .artist {
-      font-size: 0.75rem;
-      color: var(--lightVibrant);
-      opacity: 0.6;
-      margin-top: 0.1rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .bar-wrap {
-      margin-top: 0.5rem;
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
-    .time {
-      font-size: 0.55rem;
-      color: var(--lightVibrant);
-      opacity: 0.5;
-      min-width: 2rem;
-    }
-    .time.end { text-align: right; }
-    .bar {
-      flex: 1;
-      height: 3px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    .fill {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, var(--vibrant), var(--lightVibrant));
-      border-radius: 2px;
-      transition: width 0.5s linear;
-    }
-
-    .status {
-      margin-top: 0.35rem;
-      font-size: 0.5rem;
-      color: var(--vibrant);
-      opacity: 0.7;
-      letter-spacing: 0.1em;
-    }
-    .status[data-playing=""true""]::before { content: 'NOW PLAYING'; }
-    .status[data-playing=""false""]::before { content: 'PAUSED'; }
-  </style>
-</head>
-<body>
-<div class=""card"">
-  <div class=""art"">
-    <img src=""{{thumbnail}}"" alt="""">
-  </div>
-  <div class=""body"">
-    <div class=""title"">{{title}}</div>
-    <div class=""artist"">{{artist}}</div>
-    <div class=""bar-wrap"">
-      <span class=""time"" data-bind=""currentTime"">0:00</span>
-      <div class=""bar""><div class=""fill"" data-bind=""progress-width""></div></div>
-      <span class=""time end"" data-bind=""totalTime"">0:00</span>
-    </div>
-    <div class=""status"" data-bind=""playing"" data-playing=""false""></div>
-  </div>
-</div>
-</body>
-</html>"
-    };
 
     [STAThread]
     static void Main(string[] args)
@@ -513,6 +390,16 @@ class Program
 
         // Initialize paths first to check DEV_MODE
         InitializePaths();
+
+        // CLI override for no-frontend debug mode
+        if (args.Contains("--no-frontend"))
+        {
+            NO_FRONTEND = true;
+        }
+        if (NO_FRONTEND)
+        {
+            Console.WriteLine("[Config] NO_FRONTEND - бэкенд не будет отдавать фронт (только API)");
+        }
 
         if (!createdNew && !DEV_MODE)
         {
@@ -527,8 +414,8 @@ class Program
         Task.Run(() => StartWebSocketServer());
         StartMediaManager();
 
-        Console.WriteLine($"HTTP сервер: http://192.168.1.132:{HTTP_PORT}/");
-        Console.WriteLine($"WebSocket сервер: ws://192.168.1.132:{WS_PORT}/");
+        Console.WriteLine($"HTTP сервер: http://localhost:{HTTP_PORT}/");
+        Console.WriteLine($"WebSocket сервер: ws://localhost:{WS_PORT}/");
         Console.WriteLine("UnikPlayer работает.");
 
         // Setup tray icon
@@ -536,12 +423,12 @@ class Program
         Application.SetCompatibleTextRenderingDefault(false);
         SetupTrayIcon();
 
-        // Open browser if not autostart
-        if (!args.Contains("--autostart"))
+        // Open browser if not autostart and frontend is being served
+        if (!args.Contains("--autostart") && !NO_FRONTEND)
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = "http://172.19.0.1:7270/",
+                FileName = $"http://127.0.0.1:{HTTP_PORT}/",
                 UseShellExecute = true
             });
         }
@@ -663,7 +550,7 @@ class Program
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = "http://172.19.0.1:7270/",
+                FileName = $"http://127.0.0.1:{HTTP_PORT}/",
                 UseShellExecute = true
             });
         });
@@ -686,7 +573,7 @@ class Program
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = "http://172.19.0.1:7270/",
+                FileName = $"http://127.0.0.1:{HTTP_PORT}/",
                 UseShellExecute = true
             });
         };
@@ -1163,9 +1050,14 @@ class Program
             {
                 if (client.State == WebSocketState.Open)
                 {
-                    // Non-blocking send with 2s timeout
                     using var cts = new CancellationTokenSource(2000);
-                    client.SendAsync(segment, WebSocketMessageType.Text, true, cts.Token).Wait();
+                    // Fire-and-forget async send — don't block the thread pool
+                    var task = client.SendAsync(segment, WebSocketMessageType.Text, true, cts.Token);
+                    if (!task.Wait(2000))
+                    {
+                        // Send timed out — treat as dead
+                        deadClients.Add(client);
+                    }
                 }
                 else
                 {
@@ -1185,6 +1077,7 @@ class Program
                 foreach (var dead in deadClients)
                 {
                     _clients.Remove(dead);
+                    try { dead.Abort(); } catch { }
                     try { dead.Dispose(); } catch { }
                 }
             }
@@ -1214,6 +1107,7 @@ class Program
 
     static async Task ForwardConnection(TcpClient client, int localPort)
     {
+        using var cts = new CancellationTokenSource();
         try
         {
             using (client)
@@ -1268,9 +1162,11 @@ class Program
                     if (allData.Length > headerEnd)
                         await us.WriteAsync(allData, headerEnd, allData.Length - headerEnd);
 
-                    var t1 = cs.CopyToAsync(us);
-                    var t2 = us.CopyToAsync(cs);
+                    var t1 = cs.CopyToAsync(us, cts.Token);
+                    var t2 = us.CopyToAsync(cs, cts.Token);
                     await Task.WhenAny(t1, t2);
+                    // One direction closed — cancel the other to prevent hanging tasks
+                    cts.Cancel();
                 }
             }
         }
@@ -1500,7 +1396,9 @@ class Program
         {
             while (ws.State == WebSocketState.Open)
             {
-                var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                // Timeout on receive — detect dead connections that didn't send close frame
+                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+                var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), cts.Token);
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
                     await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
@@ -1514,52 +1412,102 @@ class Program
             {
                 _clients.Remove(ws);
             }
+            try { ws.Abort(); } catch { }
+            try { ws.Dispose(); } catch { }
             Console.WriteLine("[WS] Клиент отключился");
         }
     }
 
     static async Task StartHttpServer()
     {
-        int internalPort = HTTP_PORT + 1;
         _httpListener = new HttpListener();
-        _httpListener.Prefixes.Add($"http://localhost:{internalPort}/");
-        _httpListener.Start();
 
-        // TCP proxy на публичном порте
-        _ = Task.Run(() => StartTcpProxy(HTTP_PORT, internalPort, "HTTP"));
-        Console.WriteLine($"[HTTP] Сервер на 0.0.0.0:{HTTP_PORT}");
-
-        // Find frontBuild directory
-        var possiblePaths = new[]
+        // Try binding directly to all interfaces (no proxy needed)
+        bool directBind = false;
+        try
         {
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "frontBuild"),
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "frontBuild"),
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "frontBuild"),
-            Path.Combine(AppContext.BaseDirectory, "frontBuild"),
-            Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "frontBuild"),
-            Path.Combine(Directory.GetCurrentDirectory(), "..", "frontBuild"),
-            Path.Combine(Directory.GetCurrentDirectory(), "frontBuild"),
-            @"C:\Users\000-d\Desktop\JShit\Unik player reps\unikPlayer\frontBuild"
-        };
-
-        string? staticDir = null;
-        foreach (var p in possiblePaths)
+            _httpListener.Prefixes.Add($"http://+:{HTTP_PORT}/");
+            _httpListener.Start();
+            directBind = true;
+            Console.WriteLine($"[HTTP] Прямой bind на 0.0.0.0:{HTTP_PORT}");
+        }
+        catch
         {
-            var full = Path.GetFullPath(p);
-            if (File.Exists(Path.Combine(full, "index.html")))
+            // No permission for +, try registering urlacl then retry
+            _httpListener.Close();
+            try
             {
-                staticDir = full;
-                break;
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "netsh",
+                    Arguments = $"http add urlacl url=http://+:{HTTP_PORT}/ user={Environment.UserDomainName}\\{Environment.UserName}",
+                    Verb = "runas",
+                    UseShellExecute = true,
+                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+                    CreateNoWindow = true
+                };
+                var proc = System.Diagnostics.Process.Start(psi);
+                proc?.WaitForExit(5000);
+
+                _httpListener = new HttpListener();
+                _httpListener.Prefixes.Add($"http://+:{HTTP_PORT}/");
+                _httpListener.Start();
+                directBind = true;
+                Console.WriteLine($"[HTTP] Прямой bind на 0.0.0.0:{HTTP_PORT} (после urlacl)");
+            }
+            catch
+            {
+                // Fallback: localhost + TCP proxy
+                _httpListener = new HttpListener();
+                int internalPort = HTTP_PORT + 1;
+                _httpListener.Prefixes.Add($"http://localhost:{internalPort}/");
+                _httpListener.Start();
+                _ = Task.Run(() => StartTcpProxy(HTTP_PORT, internalPort, "HTTP"));
+                Console.WriteLine($"[HTTP] Fallback: proxy 0.0.0.0:{HTTP_PORT} -> localhost:{internalPort}");
             }
         }
 
-        if (staticDir == null)
-        {
-            Console.WriteLine("[HTTP] ОШИБКА: frontBuild не найден!");
-            return;
-        }
+        Console.WriteLine($"[HTTP] Сервер на 0.0.0.0:{HTTP_PORT}");
 
-        Console.WriteLine($"[HTTP] Serving: {staticDir}");
+        string? staticDir = null;
+
+        if (NO_FRONTEND)
+        {
+            Console.WriteLine("[HTTP] NO_FRONTEND активен — статика не отдаётся, только API");
+        }
+        else
+        {
+            // Find frontBuild directory
+            var possiblePaths = new[]
+            {
+                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "frontBuild"),
+                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "frontBuild"),
+                Path.Combine(AppContext.BaseDirectory, "..", "..", "frontBuild"),
+                Path.Combine(AppContext.BaseDirectory, "frontBuild"),
+                Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "frontBuild"),
+                Path.Combine(Directory.GetCurrentDirectory(), "..", "frontBuild"),
+                Path.Combine(Directory.GetCurrentDirectory(), "frontBuild"),
+                @"C:\Users\000-d\Desktop\JShit\Unik player reps\unikPlayer\frontBuild"
+            };
+
+            foreach (var p in possiblePaths)
+            {
+                var full = Path.GetFullPath(p);
+                if (File.Exists(Path.Combine(full, "index.html")))
+                {
+                    staticDir = full;
+                    break;
+                }
+            }
+
+            if (staticDir == null)
+            {
+                Console.WriteLine("[HTTP] ОШИБКА: frontBuild не найден!");
+                return;
+            }
+
+            Console.WriteLine($"[HTTP] Serving: {staticDir}");
+        }
 
         while (true)
         {
@@ -1575,7 +1523,7 @@ class Program
         }
     }
 
-    static async Task HandleHttpRequest(HttpListenerContext context, string staticDir)
+    static async Task HandleHttpRequest(HttpListenerContext context, string? staticDir)
     {
         var request = context.Request;
         var response = context.Response;
@@ -1771,12 +1719,19 @@ class Program
         }
 
         // Static file serving
+        if (staticDir == null)
+        {
+            response.StatusCode = 404;
+            response.Close();
+            return;
+        }
+
         if (path == "/") path = "/index.html";
 
         var filePath = Path.GetFullPath(Path.Combine(staticDir, path.TrimStart('/')));
 
         // Security check
-        if (!filePath.StartsWith(staticDir))
+        if (!filePath.StartsWith(staticDir, StringComparison.OrdinalIgnoreCase))
         {
             response.StatusCode = 403;
             response.Close();
@@ -1796,6 +1751,7 @@ class Program
         // If file not found, serve index.html (SPA routing)
         if (!File.Exists(filePath))
         {
+            Console.WriteLine($"[HTTP] File not found: {filePath} -> fallback to index.html");
             filePath = Path.Combine(staticDir, "index.html");
         }
 
@@ -3003,6 +2959,7 @@ class Program
         ".woff" => "font/woff",
         ".woff2" => "font/woff2",
         ".ttf" => "font/ttf",
+        ".otf" => "font/otf",
         _ => "application/octet-stream"
     };
 }

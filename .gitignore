@@ -21,10 +21,11 @@ projBuild/
 .vs/
 *.user
 
-# Claude
+# AI
 .claude
 CLAUDE.MD
 tmpclaude-*
+.clinerules.md
 
 # Misc
 *.vbs

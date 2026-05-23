@@ -1,8 +1,8 @@
-import { style } from '$lib/stores/stores.js'
+﻿import { style } from '$lib/stores/stores.js'
 import { ShowNotification } from '$lib/stores/stores.js'
 
 export async function chooseFunc(name){        
-    console.log(name + " выбран")
+    console.log(name + " РІС‹Р±СЂР°РЅ")
 
     style.set(name)
 
@@ -10,7 +10,7 @@ export async function chooseFunc(name){
 
 export async function copyPlayerStyle(name) {
     ShowNotification.set(true)
-    const copyUrl = `http://172.19.0.1:7270/player?${name}`;
+    const copyUrl = `http://127.0.0.1:27272/player?${name}`;
     try {
         if (navigator.clipboard) {
             await navigator.clipboard.writeText(copyUrl);
@@ -23,8 +23,8 @@ export async function copyPlayerStyle(name) {
             document.execCommand('copy');
             document.body.removeChild(ta);
         }
-        console.log('Скопировано!');
+        console.log('РЎРєРѕРїРёСЂРѕРІР°РЅРѕ!');
     } catch (err) {
-        console.error('Не удалось скопировать: ', err);
+        console.error('РќРµ СѓРґР°Р»РѕСЃСЊ СЃРєРѕРїРёСЂРѕРІР°С‚СЊ: ', err);
     }
 }

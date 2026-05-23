@@ -1,8 +1,8 @@
-// Shared CSS utilities for player styling:
+﻿// Shared CSS utilities for player styling:
 // scoping, loading from backend, and DOM injection
 
 function getApiBase() {
-  if (typeof window === 'undefined') return 'http://192.168.1.132:27272';
+  if (typeof window === 'undefined') return 'http://127.0.0.1:27272';
   const port = window.location.port;
   if (port === '7270' || port === '5173') return '';
   return '';
@@ -50,7 +50,7 @@ export function transformCSS(rawCSS, playerName, containerScope = '') {
     const selectors = selector.split(',').map(s => {
       s = s.trim();
       if (!s) return '';
-      // Already contains our player scope — don't double-nest
+      // Already contains our player scope вЂ” don't double-nest
       if (s.includes(playerScope)) return s;
       if (s === '*') return `${fullScope} *`;
       return `${fullScope} ${s}`;

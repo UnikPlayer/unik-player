@@ -35,12 +35,14 @@
         saveCSSToBackend as sharedSaveCSS,
         deleteCSSFromBackend,
     } from "$lib/utils/playerCSS.js";
+    import { startGuide } from '$lib/stores/guide';
+    import GuideOverlay from './GuideOverlay.svelte';
 
     // Backend API base URL - for dev mode
     const isBrowser = typeof window !== "undefined";
     const API_BASE =
         isBrowser && window.location.port === "5173"
-            ? "http://192.168.1.132:27272"
+            ? "http://localhost:5173"
             : "";
 
     let playerComponent = null;
@@ -269,8 +271,19 @@
 
     function playPigSound() {
         if (!pigAudio) {
-            pigAudio = new Audio("/pig.mp3");
+            const soundFiles = [
+                "/sounds/pig1.mp3", // Assuming pig sounds are named pig1.mp3, pig2.mp3, etc.
+                "/sounds/PigOink1.ogg",
+                "/sounds/PigOink2.ogg",
+                "/sounds/PigOink3.ogg",
+                // Add more pig sound file paths here
+            ];
+            const randomSound = soundFiles[Math.floor(Math.random() * soundFiles.length)];
+            pigAudio = new Audio(randomSound);
             pigAudio.volume = 0.4;
+            pigAudio.addEventListener('ended', () => {
+                pigAudio = null; // Reset audio object after playing
+            });
         }
         pigAudio.currentTime = 0;
         pigAudio.play();
@@ -281,6 +294,20 @@
             pigBouncing = true;
             setTimeout(() => (pigBouncing = false), 300);
         });
+    }
+
+    function speakText(text) {
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            speechSynthesis.speak(utterance);
+        } else {
+            console.warn('Text-to-speech not supported in this browser.');
+        }
+    }
+    function setVolume(event) {
+        if (pigAudio) {
+            pigAudio.volume = event.target.value / 100;
+        }
     }
 
     // Live preview: transform and inject CSS when cssText changes
@@ -587,7 +614,7 @@
   `
         : `font-family: "${localFont}", sans-serif;`;
 
-    // Rebuild srcdoc only when HTML content changes (not on color/font changes)
+    // Rebuild srcdoc only when HTML content changes
     $: if (isCustomPlayer && htmlText) {
         iframeSrcdoc = processCustomHTML(
             htmlText,
@@ -930,7 +957,7 @@ window.addEventListener('message', function(e) {
                 <!-- Left Panel: Preview -->
                 <section class="preview-panel">
                     <div class="panel-header">
-                        <span>MONITOR_01 // PREVIEW</span>
+                        <span>PREVIEW</span>
                         <span class="panel-badge"
                             >{playerName.toUpperCase()}</span
                         >
@@ -991,7 +1018,7 @@ window.addEventListener('message', function(e) {
                         <!-- Custom Player Snippets -->
                         <div class="custom-player-info">
                             <div class="info-header">
-                                <span class="control-icon">&lt;/&gt;</span>
+                                <span class="control-icon code-icon">&lt;/&gt;</span>
                                 <span>SNIPPETS</span>
                                 <span class="snippets-hint">click to copy</span>
                             </div>
@@ -1018,7 +1045,7 @@ window.addEventListener('message', function(e) {
                     <!-- CSS/HTML Editor -->
                     <div class="control-group css-editor">
                         <div class="control-header css-control-header">
-                            <span class="control-icon">&lt;/&gt;</span>
+                            <span class="control-icon code-icon">&lt;/&gt;</span>
                             <span
                                 >{isCustomPlayer
                                     ? "PLAYER.HTML"
@@ -1126,6 +1153,19 @@ window.addEventListener('message', function(e) {
                     }}
                 >
                     Reset
+                </button>
+                <button class="footer-btn" on:click={() => speakText('Hello, world!')}>
+                    TTS
+                </button>
+                <input type="range" min="0" max="100" on:input={setVolume}>
+                <button class="footer-btn" on:click={() => speakText('Hello, world!')}>
+                    TTS
+                </button>
+                <button class="footer-btn" on:click={() => {
+                    speakText('Starting the guide.');
+                    // TODO: Implement guide start
+                }}>
+                    Guide
                 </button>
             </footer>
         </div>
@@ -1247,7 +1287,7 @@ window.addEventListener('message', function(e) {
         align-items: center;
         gap: 0.5rem;
         padding: 0.4rem 0.8rem;
-        border: 1px solid var(--c1);
+        border: 3px solid var(--c1);
         font-family: '8bitwonder', monospace;
         font-size: 1rem;
         color: rgba(0, 0, 0, 0.7);
@@ -1344,14 +1384,21 @@ window.addEventListener('message', function(e) {
         flex-direction: column;
         gap: 1rem;
         overflow-y: auto;
+        scrollbar-width: none;
+
+        &::-webkit-scrollbar { display: none; }
     }
 
     .top-controls-row {
         display: flex;
         gap: 1rem;
+        align-items: stretch;
 
         .control-group {
             flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width:300px;
         }
     }
 
@@ -1369,7 +1416,7 @@ window.addEventListener('message', function(e) {
         font-size: 1rem;
         color: var(--c1);
         background: transparent;
-        border: 1px solid var(--c1);
+        border: 3px solid var(--c1);
         cursor: pointer;
         transition:
             color 0.1s,
@@ -1406,7 +1453,7 @@ window.addEventListener('message', function(e) {
 
     .control-group {
         background: transparent;
-        border: 1px solid var(--c1);
+        border: 3px solid var(--c1);
         padding: 1rem;
     }
 
@@ -1430,6 +1477,12 @@ window.addEventListener('message', function(e) {
         justify-content: center;
         font-size: 1rem;
         color: var(--c1);
+    }
+
+    .control-icon.code-icon {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 0.55rem;
+        letter-spacing: 0;
     }
 
     .scale-value {
@@ -1476,7 +1529,7 @@ window.addEventListener('message', function(e) {
     .edit-external-btn {
         margin-left: auto !important;
         background: transparent !important;
-        border: 1px solid var(--c1) !important;
+        border: 3px solid var(--c1) !important;
         padding: 0.3rem 0.7rem !important;
         font-family: '8bitwonder', monospace !important;
         font-size: 1rem !important;
@@ -1494,7 +1547,7 @@ window.addEventListener('message', function(e) {
     .file-info-btn {
         margin-left: auto;
         background: none;
-        border: 1px solid var(--c1);
+        border: 3px solid var(--c1);
         padding: 0.2rem 0.5rem;
         font-family: '8bitwonder', monospace;
         font-size: 1rem;
@@ -1510,7 +1563,7 @@ window.addEventListener('message', function(e) {
 
     .custom-player-info {
         background: transparent;
-        border: 1px solid var(--c1);
+        border: 3px solid var(--c1);
         padding: 1rem;
     }
 
@@ -1546,7 +1599,7 @@ window.addEventListener('message', function(e) {
         gap: 0.2rem;
         padding: 0.45rem 0.6rem;
         background: transparent;
-        border: 1px solid var(--c1);
+        border: 3px solid var(--c1);
         cursor: pointer;
         transition: all 0.15s;
         text-align: left;
@@ -1585,7 +1638,7 @@ window.addEventListener('message', function(e) {
         font-size: 1rem;
         color: var(--c1);
         background: rgba(0, 0, 0, 0.06);
-        border: 1px solid var(--c1);
+        border: 3px solid var(--c1);
         padding: 0.15rem 0.4rem;
         letter-spacing: 0.05em;
     }
@@ -1595,7 +1648,7 @@ window.addEventListener('message', function(e) {
         flex: 1;
         display: flex;
         flex-direction: column;
-        min-height: 300px;
+        min-height: 900px;
     }
 
     .css-control-header {
@@ -1607,22 +1660,22 @@ window.addEventListener('message', function(e) {
         display: flex;
         position: relative;
         overflow: hidden;
-        background: rgba(0, 0, 0, 0.85);
-        border: 1px solid var(--c1);
+        background: #000;
+        border: 3px solid var(--c1);
     }
 
     .line-numbers {
         position: relative;
         z-index: 2;
         padding: 1rem 0.75rem;
-        background: rgba(0, 0, 0, 0.15);
-        border-right: 1px solid var(--c1);
+        background: #000;
+        border-right: 3px solid var(--c1);
         display: flex;
         flex-direction: column;
         font-family: 'JetBrains Mono', monospace;
         font-size: 1rem;
         line-height: 1.6;
-        color: rgba(255, 255, 255, 0.2);
+        color: #555;
         user-select: none;
     }
 
@@ -1631,26 +1684,30 @@ window.addEventListener('message', function(e) {
         z-index: 2;
         flex: 1;
         padding: 1rem;
-        background: transparent;
+        background: #000;
         border: none;
         resize: none;
         font-family: 'JetBrains Mono', monospace;
         font-size: 1rem;
         line-height: 1.6;
-        color: rgba(212, 238, 255, 0.85);
+        color: #fff;
         outline: none;
 
         &::selection {
-            background: rgba(100, 100, 255, 0.3);
+            background: #444;
         }
     }
 
     // Footer — transparent, no bar
     .editor-footer {
-        display: flex;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
         align-items: center;
-        justify-content: space-between;
         padding: 1rem 1.5rem;
+
+        > .pig-btn { justify-self: start; }
+        > .footer-actions { justify-self: center; }
+        > .reset { justify-self: end; }
     }
 
     .footer-btn {
@@ -1658,7 +1715,7 @@ window.addEventListener('message', function(e) {
         font-size: 1rem;
         letter-spacing: 0.06em;
         padding: 0.8rem 1.5rem;
-        border: 1px solid;
+        border: 3px solid;
         cursor: pointer;
         transition:
             color 0.2s,

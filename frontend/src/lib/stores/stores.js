@@ -3,7 +3,7 @@ import { writable } from "svelte/store";
 // Backend API base URL - empty for same origin (production), full URL for dev
 const isBrowser = typeof window !== 'undefined';
 const API_BASE = isBrowser && (window.location.port === '5173' || window.location.port === '7270')
-  ? 'http://192.168.1.132:27272'  // Dev mode: frontend on 7270, backend on 27272
+  ? ''  // Dev mode: use proxy to localhost:27272
   : '';                             // Production: same origin, use relative URLs
 
 // Helper to create a persistent store with localStorage (for non-critical settings)
@@ -45,23 +45,25 @@ function createPlayerStylesStore() {
   let isLoaded = false; // Flag to prevent saving before loading
 
   if (isBrowser) {
-    // Load from API on init
-    fetch(`${API_BASE}/api/styles`)
-      .then(res => res.json())
-      .then(data => {
-        console.log('[Styles] Loaded from API:', data);
-        store.set(data);
-        isLoaded = true; // Now we can save
-      })
-      .catch(err => {
-        console.warn('[Styles] Failed to load from API, using localStorage fallback:', err);
-        // Fallback to localStorage
-        try {
-          const stored = localStorage.getItem('unikplayer_styles');
-          if (stored) store.set(JSON.parse(stored));
-        } catch (e) {}
-        isLoaded = true; // Allow saving even if load failed
-      });
+      // Load from API on init
+      if (isBrowser) {
+        fetch(`${API_BASE}/api/styles`)
+          .then(res => res.json())
+          .then(data => {
+            console.log('[Styles] Loaded from API:', data);
+            store.set(data);
+            isLoaded = true; // Now we can save
+          })
+          .catch(err => {
+            console.warn('[Styles] Failed to load from API, using localStorage fallback:', err);
+            // Fallback to localStorage
+            try {
+              const stored = localStorage.getItem('unikplayer_styles');
+              if (stored) store.set(JSON.parse(stored));
+            } catch (e) {}
+            isLoaded = true; // Allow saving even if load failed
+          });
+      }
 
     // Save to API on change (debounced)
     let saveTimeout = null;

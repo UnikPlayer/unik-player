@@ -1,10 +1,10 @@
-// Auto-discovery: автоматически находим все плееры в папке /players
+﻿// Auto-discovery: Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё РЅР°С…РѕРґРёРј РІСЃРµ РїР»РµРµСЂС‹ РІ РїР°РїРєРµ /players
 const playerModules = import.meta.glob('./players/*.svelte', { eager: true });
 
-// Компонент для кастомных плееров
+// РљРѕРјРїРѕРЅРµРЅС‚ РґР»СЏ РєР°СЃС‚РѕРјРЅС‹С… РїР»РµРµСЂРѕРІ
 import CustomPlayerRenderer from '$lib/components/CustomPlayerRenderer.svelte';
 
-// Преобразуем модули в объект { name: { component, meta } }
+// РџСЂРµРѕР±СЂР°Р·СѓРµРј РјРѕРґСѓР»Рё РІ РѕР±СЉРµРєС‚ { name: { component, meta } }
 const builtInPlayers = {};
 for (const [path, module] of Object.entries(playerModules)) {
   const name = path.match(/\/([^/]+)\.svelte$/)?.[1];
@@ -18,11 +18,11 @@ for (const [path, module] of Object.entries(playerModules)) {
 
 // Backend API base URL
 function getApiBase() {
-  if (typeof window === 'undefined') return 'http://192.168.1.132:27272';
+  if (typeof window === 'undefined') return 'http://127.0.0.1:27272';
   const port = window.location.port;
-  // Dev mode - proxy через Vite или напрямую на backend
+  // Dev mode - proxy С‡РµСЂРµР· Vite РёР»Рё РЅР°РїСЂСЏРјСѓСЋ РЅР° backend
   if (port === '7270' || port === '5173') return '';
-  // Production - тот же хост
+  // Production - С‚РѕС‚ Р¶Рµ С…РѕСЃС‚
   return '';
 }
 
@@ -112,7 +112,7 @@ export function getAllPlayers() {
 export async function getAllPlayersAsync() {
   const builtIn = Object.entries(builtInPlayers).map(([name, { component }]) => {
     try {
-      // Проверяем что компонент валидный
+      // РџСЂРѕРІРµСЂСЏРµРј С‡С‚Рѕ РєРѕРјРїРѕРЅРµРЅС‚ РІР°Р»РёРґРЅС‹Р№
       if (!component) {
         return {
           component: null,

@@ -1,7 +1,7 @@
-import { writable } from 'svelte/store';
+﻿import { writable } from 'svelte/store';
 
 const SITE_URL = 'https://player.uniknow.ru';
-const CALLBACK_URL = 'http://192.168.1.132:27272/auth-callback';
+const CALLBACK_URL = 'http://127.0.0.1:27272/auth-callback';
 
 function createSiteAuthStore() {
   const { subscribe, set, update } = writable(null);

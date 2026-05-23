@@ -1,4 +1,4 @@
-import { rgbToHex } from "./convertToHex.js";
+﻿import { rgbToHex } from "./convertToHex.js";
 
 import {
   title,
@@ -41,7 +41,7 @@ function thumbnailHash(data) {
 }
 
 // Update timeline data from backend
-// Вся логика позиции в бэкенде — фронтенд просто отображает
+// Р’СЃСЏ Р»РѕРіРёРєР° РїРѕР·РёС†РёРё РІ Р±СЌРєРµРЅРґРµ вЂ” С„СЂРѕРЅС‚РµРЅРґ РїСЂРѕСЃС‚Рѕ РѕС‚РѕР±СЂР°Р¶Р°РµС‚
 function updateTimeline(timeline, playback) {
   if (!timeline) {
     trackDuration.set(0);
@@ -90,7 +90,7 @@ export async function connect() {
     }
   }
 
-  const url = "ws://192.168.1.132:62727";
+  const url = "ws://127.0.0.1:62727";
   console.log("[WS] Connecting to", url);
 
   try {
@@ -120,14 +120,14 @@ export async function connect() {
         );
       }
 
-      // Проверяем что media существует (title/artist могут быть пустыми строками)
+      // РџСЂРѕРІРµСЂСЏРµРј С‡С‚Рѕ media СЃСѓС‰РµСЃС‚РІСѓРµС‚ (title/artist РјРѕРіСѓС‚ Р±С‹С‚СЊ РїСѓСЃС‚С‹РјРё СЃС‚СЂРѕРєР°РјРё)
       if (
         mediaData &&
         mediaData.media &&
         (mediaData.media.title !== undefined ||
           mediaData.media.artist !== undefined)
       ) {
-        // New media arrived — cancel any pending hide
+        // New media arrived вЂ” cancel any pending hide
         if (hideTimeout) {
           clearTimeout(hideTimeout);
           hideTimeout = null;
@@ -137,7 +137,7 @@ export async function connect() {
         const newArtist = mediaData.media.artist || "Unknown";
         const thumbnailObj = mediaData.media.thumbnail;
 
-        // base64 может быть строкой, массивом байтов, или null
+        // base64 РјРѕР¶РµС‚ Р±С‹С‚СЊ СЃС‚СЂРѕРєРѕР№, РјР°СЃСЃРёРІРѕРј Р±Р°Р№С‚РѕРІ, РёР»Рё null
         const base64 = thumbnailObj?.data || null;
 
         // Check if ANYTHING changed - compare with cached values
@@ -177,22 +177,22 @@ export async function connect() {
         // Create new blob URL if thumbnail changed
         let newThumbnailUrl = get(thumbnail);
         if (thumbChanged) {
-          // Освобождаем старый blob URL
+          // РћСЃРІРѕР±РѕР¶РґР°РµРј СЃС‚Р°СЂС‹Р№ blob URL
           if (currentBlobUrl) {
             URL.revokeObjectURL(currentBlobUrl);
             currentBlobUrl = null;
           }
 
-          // Если нет thumbnail - оставляем null
+          // Р•СЃР»Рё РЅРµС‚ thumbnail - РѕСЃС‚Р°РІР»СЏРµРј null
           if (base64 === null) {
             console.log("[WS] No thumbnail data, showing without image");
             newThumbnailUrl = null;
           }
-          // Декодируем base64 в blob
-          // base64 может быть: строкой, массивом байтов, или объектом Buffer
+          // Р”РµРєРѕРґРёСЂСѓРµРј base64 РІ blob
+          // base64 РјРѕР¶РµС‚ Р±С‹С‚СЊ: СЃС‚СЂРѕРєРѕР№, РјР°СЃСЃРёРІРѕРј Р±Р°Р№С‚РѕРІ, РёР»Рё РѕР±СЉРµРєС‚РѕРј Buffer
           else if (Array.isArray(base64)) {
             console.log("[WS] base64 type: array");
-            // Массив байтов напрямую
+            // РњР°СЃСЃРёРІ Р±Р°Р№С‚РѕРІ РЅР°РїСЂСЏРјСѓСЋ
             const bytes = new Uint8Array(base64);
             const blob = new Blob([bytes], { type: "image/png" });
             currentBlobUrl = URL.createObjectURL(blob);
@@ -211,12 +211,12 @@ export async function connect() {
             newThumbnailUrl = currentBlobUrl;
           } else if (typeof base64 === "string") {
             console.log("[WS] base64 type: string");
-            // Удаляем data URL prefix если есть
+            // РЈРґР°Р»СЏРµРј data URL prefix РµСЃР»Рё РµСЃС‚СЊ
             let cleanBase64 = base64;
             if (cleanBase64.includes(",")) {
               cleanBase64 = cleanBase64.split(",")[1];
             }
-            // Удаляем пробелы и переносы строк
+            // РЈРґР°Р»СЏРµРј РїСЂРѕР±РµР»С‹ Рё РїРµСЂРµРЅРѕСЃС‹ СЃС‚СЂРѕРє
             cleanBase64 = cleanBase64.replace(/[\s\r\n]/g, "");
 
             try {
@@ -260,9 +260,9 @@ export async function connect() {
         // Update timeline/progress data
         updateTimeline(mediaData.timeline, mediaData.playback);
       } else if (mediaData && mediaData.media === null) {
-        // Медиа остановлено — скрываем с задержкой (при смене трека
-        // бэкенд кратковременно шлёт null, потом новый трек)
-        console.log("[WS] Media null — scheduling hide (1500ms)");
+        // РњРµРґРёР° РѕСЃС‚Р°РЅРѕРІР»РµРЅРѕ вЂ” СЃРєСЂС‹РІР°РµРј СЃ Р·Р°РґРµСЂР¶РєРѕР№ (РїСЂРё СЃРјРµРЅРµ С‚СЂРµРєР°
+        // Р±СЌРєРµРЅРґ РєСЂР°С‚РєРѕРІСЂРµРјРµРЅРЅРѕ С€Р»С‘С‚ null, РїРѕС‚РѕРј РЅРѕРІС‹Р№ С‚СЂРµРє)
+        console.log("[WS] Media null вЂ” scheduling hide (1500ms)");
         if (hideTimeout) clearTimeout(hideTimeout);
         hideTimeout = setTimeout(() => {
           hideTimeout = null;
@@ -279,17 +279,17 @@ export async function connect() {
         // Timeline update without full media change (e.g., position update)
         updateTimeline(mediaData.timeline, mediaData.playback);
 
-        // Check if playback stopped (pause/stop) — schedule hide
+        // Check if playback stopped (pause/stop) вЂ” schedule hide
         const playing =
           mediaData.playback && mediaData.playback.playbackStatus === 4;
         if (!playing && get(ShowTrack)) {
-          console.log("[WS] Playback paused/stopped — scheduling hide");
+          console.log("[WS] Playback paused/stopped вЂ” scheduling hide");
           if (hideTimeout) clearTimeout(hideTimeout);
           hideTimeout = setTimeout(() => {
             hideTimeout = null;
-            // Check again — maybe resumed during the delay
+            // Check again вЂ” maybe resumed during the delay
             if (!get(isPlaying)) {
-              console.log("[WS] Still paused — hiding player");
+              console.log("[WS] Still paused вЂ” hiding player");
               ShowTrack.set(false);
               lastTitle = null;
               lastArtist = null;
@@ -298,7 +298,7 @@ export async function connect() {
             }
           }, 600);
         } else if (playing && hideTimeout) {
-          // Resumed — cancel pending hide
+          // Resumed вЂ” cancel pending hide
           clearTimeout(hideTimeout);
           hideTimeout = null;
           if (!get(ShowTrack)) {
@@ -306,7 +306,7 @@ export async function connect() {
           }
         }
       }
-      // Если данные неполные - просто игнорируем, оставляем предыдущее состояние
+      // Р•СЃР»Рё РґР°РЅРЅС‹Рµ РЅРµРїРѕР»РЅС‹Рµ - РїСЂРѕСЃС‚Рѕ РёРіРЅРѕСЂРёСЂСѓРµРј, РѕСЃС‚Р°РІР»СЏРµРј РїСЂРµРґС‹РґСѓС‰РµРµ СЃРѕСЃС‚РѕСЏРЅРёРµ
     } catch (err) {
       console.error("[WS] Parsing error", err);
     }

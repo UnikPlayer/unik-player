@@ -28,6 +28,10 @@
     $: previewScale =
         savedStyle.previewScale ?? getPlayerMeta(name)?.defaultScale ?? 0.5;
 
+    let cardWidth = 450;
+    $: scaleFactor = cardWidth / 450;
+    $: effectiveScale = previewScale * scaleFactor;
+
     $: previewStyle =
         useStaticColor && colors
             ? `
@@ -38,9 +42,9 @@
     --lightMuted: ${colors.lightMuted};
     --darkMuted: ${colors.darkMuted};
     font-family: "${fontFamily}", sans-serif;
-    transform: translate(-50%, -50%) scale(${previewScale});
+    transform: translate(-50%, -50%) scale(${effectiveScale});
   `
-            : `font-family: "${fontFamily}", sans-serif; transform: translate(-50%, -50%) scale(${previewScale});`;
+            : `font-family: "${fontFamily}", sans-serif; transform: translate(-50%, -50%) scale(${effectiveScale});`;
 
     function openEditor() {
         editingPlayer.set(name);
@@ -98,6 +102,7 @@
     let _raf = null;
     let _off1 = null, _off2 = null, _off3 = null;
     let _onMM = null, _onML = null;
+    let _ro = null;
     let _destroyed = false;
 
     onDestroy(() => {
@@ -107,6 +112,7 @@
             if (_onMM) cardEl.removeEventListener('mousemove', _onMM);
             if (_onML) cardEl.removeEventListener('mouseleave', _onML);
         }
+        if (_ro) _ro.disconnect();
         if (_off1) _off1.width = _off1.height = 0;
         if (_off2) _off2.width = _off2.height = 0;
         if (_off3) _off3.width = _off3.height = 0;
@@ -120,6 +126,11 @@
             await document.fonts.ready;
         }
         if (_destroyed) return;
+
+        _ro = new ResizeObserver(entries => {
+            for (const entry of entries) cardWidth = entry.contentRect.width;
+        });
+        if (cardEl) _ro.observe(cardEl);
 
         if (!cloudCv || !cardEl) return;
         const W = cardEl.offsetWidth, H = cardEl.offsetHeight;
@@ -368,7 +379,7 @@
         padding-top: 2px;
     }
     .act {
-        font-family: '8bitwonder', monospace; font-size: 12px;
+        font-family: '8bitwonder', monospace; font-size: 1rem;
         background: none; color: var(--c1);
         border: none; cursor: pointer; padding: 2px 8px;
         transition: all 0.15s; opacity: 0.6;

@@ -1,4 +1,4 @@
-<script>
+﻿<script>
     import { onMount } from "svelte";
     import ValidationErrorDialog from "./ValidationErrorDialog.svelte";
     import {
@@ -10,7 +10,7 @@
     } from "$lib/stores/stores";
 
     function getApiBase() {
-        if (typeof window === "undefined") return "http://192.168.1.132:27272";
+        if (typeof window === "undefined") return "http://127.0.0.1:27272";
         const port = window.location.port;
         if (port === "7270" || port === "5173") return "";
         return "";
@@ -84,7 +84,7 @@
     let blobs = null;
     let mx = -9999, my = -9999;
 
-    // Базовый HTML для "start from scratch"
+    // Р‘Р°Р·РѕРІС‹Р№ HTML РґР»СЏ "start from scratch"
     const BASE_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -106,7 +106,7 @@
 </body>
 </html>`
 
-    // Ввод имени для нового плеера
+    // Р’РІРѕРґ РёРјРµРЅРё РґР»СЏ РЅРѕРІРѕРіРѕ РїР»РµРµСЂР°
     let nameInput = '';
     let showNameInput = false;
 

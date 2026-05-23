@@ -1,6 +1,5 @@
 <script>
-  import { fade, fly } from 'svelte/transition';
-  import { onDestroy } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { language } from '$lib/stores/stores.js';
 
   export let visible = false;
@@ -13,9 +12,12 @@
   let mode = 'allowAll';
   let sources = [];
   let seenSources = [];
-  let sourceInfo = []; // {id, displayName, title, artist, isPlaying}
+  let sourceInfo = [];
   let loading = true;
   let pollInterval = null;
+
+  let anim = 'hidden';
+  let closing = false;
 
   const t = {
     en: {
@@ -51,6 +53,9 @@
   $: if (visible) {
     loadFilter();
     startPolling();
+    if (anim === 'hidden') {
+      requestAnimationFrame(() => { anim = 'fly-in'; closing = false; });
+    }
   } else {
     stopPolling();
   }
@@ -61,7 +66,7 @@
 
   function startPolling() {
     stopPolling();
-    pollInterval = setInterval(pollSources, 1500); // 1.5s for faster media updates
+    pollInterval = setInterval(pollSources, 1500);
   }
 
   function stopPolling() {
@@ -76,7 +81,6 @@
       const res = await fetch(`${API_BASE}/api/media-filter`);
       if (res.ok) {
         const data = await res.json();
-        // Only update seenSources and sourceInfo, don't override user's mode/sources edits
         seenSources = [...(data.seenSources || [])];
         sourceInfo = [...(data.sourceInfo || [])];
       }
@@ -118,21 +122,200 @@
     } catch (e) {
       console.error('[MediaFilter] Failed to save:', e);
     }
-    onClose();
+    doClose();
   }
 
+  function doClose() {
+    if (closing) return;
+    closing = true;
+    anim = 'fly-out';
+    setTimeout(() => {
+      onClose();
+      closing = false;
+      anim = 'hidden';
+      blobs = null;
+    }, 500);
+  }
+
+  // Cloud blob system (same as CustomPlayerUploader)
+  const S = 8;
+
+  class CloudBlob {
+    constructor(x,y,r){
+      this.hx=x;this.hy=y;this.r=r;this.dx=0;this.dy=0;this.vx=0;this.vy=0;
+      this.wph1=Math.random()*Math.PI*2;this.wph2=Math.random()*Math.PI*2;
+      this.wamp=0.15+Math.random()*0.2;
+    }
+    update(mx,my,t){
+      const wx=Math.sin(t*.008+this.wph1)*this.wamp;
+      const wy=Math.cos(t*.006+this.wph2)*this.wamp*0.7;
+      const px=this.hx+this.dx,py=this.hy+this.dy;
+      const ex=px-mx,ey=py-my,d=Math.sqrt(ex*ex+ey*ey)+.001;
+      const zone=this.r*4;
+      if(d<zone){const f=Math.pow(1-d/zone,1.5)*3.5;this.vx+=(ex/d)*f;this.vy+=(ey/d)*f;}
+      this.vx+=-(this.dx-wx)*.08;this.vy+=-(this.dy-wy)*.08;
+      this.vx*=.78;this.vy*=.78;this.dx+=this.vx;this.dy+=this.vy;
+    }
+  }
+
+  function makeCloudBlobs(WS,HS,offX=0,offY=0){
+    const b=[],cx=WS/2+offX,cy=HS/2+offY;
+    const spheres=[
+      {x:0,y:0.05,r:0.40,n:35},
+      {x:-0.05,y:-0.22,r:0.24,n:22},{x:0.18,y:-0.18,r:0.20,n:18},
+      {x:-0.22,y:-0.14,r:0.18,n:16},{x:0.08,y:-0.32,r:0.14,n:12},
+      {x:-0.12,y:-0.35,r:0.11,n:10},{x:0.26,y:-0.28,r:0.10,n:8},
+      {x:-0.38,y:-0.02,r:0.16,n:14},{x:0.38,y:-0.02,r:0.16,n:14},
+      {x:-0.32,y:-0.12,r:0.12,n:10},{x:0.34,y:-0.12,r:0.12,n:10},
+      {x:-0.18,y:0.22,r:0.18,n:12},{x:0.15,y:0.22,r:0.18,n:12},
+      {x:0,y:0.26,r:0.14,n:8},
+      {x:-0.42,y:-0.02,r:0.09,n:8},{x:0.42,y:-0.02,r:0.09,n:8},
+      {x:-0.42,y:0.12,r:0.09,n:8},{x:0.42,y:0.12,r:0.09,n:8},
+      {x:-0.42,y:0.25,r:0.08,n:6},{x:0.42,y:0.25,r:0.08,n:6},
+    ];
+    const SCALE=1.15;
+    for(const sp of spheres){
+      const scx=cx+sp.x*WS*SCALE,scy=cy+sp.y*HS*SCALE;
+      const sr=sp.r*Math.min(WS,HS)*SCALE;
+      for(let i=0;i<sp.n;i++){
+        const a=Math.random()*Math.PI*2,dist=Math.pow(Math.random(),.55);
+        b.push(new CloudBlob(scx+Math.cos(a)*sr*dist,scy+Math.sin(a)*sr*dist, 3+Math.random()*5));
+      }
+    }
+    return b;
+  }
+
+  let blobs = null;
+  let mx = -9999, my = -9999;
+  let cloudCanvas = null;
+  let contentEl = null;
+
+  onMount(() => {
+    const cs = getComputedStyle(document.documentElement);
+    function parseCSSColor(varName){
+      const v=cs.getPropertyValue(varName).trim();
+      if(!v)return[0,0,0];
+      if(v.startsWith('#')){
+        const h=v.replace('#','');
+        if(h.length===3)return[parseInt(h[0]+h[0],16),parseInt(h[1]+h[1],16),parseInt(h[2]+h[2],16)];
+        return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
+      }
+      const m=v.match(/(\d+)/g);
+      return m?[+m[0],+m[1],+m[2]]:[0,0,0];
+    }
+    const cCloud=parseCSSColor('--c-cloud');
+    const cOutline=parseCSSColor('--c-cloud-outline');
+
+    const _off1=document.createElement('canvas');
+    const _off2=document.createElement('canvas');
+
+    const PAD=300;
+    let lastEW=0, lastEH=0;
+
+    function renderCloud(canvas, t){
+      if(!canvas) return;
+      const el = contentEl;
+      if(!el) return;
+      const ew=el.offsetWidth, eh=el.offsetHeight;
+      if(ew<2||eh<2) return;
+
+      if(ew!==lastEW||eh!==lastEH){
+        canvas.style.left=-PAD+'px';
+        canvas.style.top=-PAD+'px';
+        canvas.style.width=(ew+PAD*2)+'px';
+        canvas.style.height=(eh+PAD*2)+'px';
+        lastEW=ew; lastEH=eh;
+        blobs=null; // regenerate blobs for new size
+      }
+
+      const TW=Math.ceil((ew+PAD*2)/S), TH=Math.ceil((eh+PAD*2)/S);
+      const WS=Math.ceil(ew/S), HS=Math.ceil(eh/S);
+      const padS=Math.ceil(PAD/S);
+
+      if(!blobs) blobs=makeCloudBlobs(WS,HS, padS, padS);
+
+      if(_off1.width!==TW||_off1.height!==TH){_off1.width=TW;_off1.height=TH;}
+      if(_off2.width!==TW||_off2.height!==TH){_off2.width=TW;_off2.height=TH;}
+      if(canvas.width!==TW||canvas.height!==TH){canvas.width=TW;canvas.height=TH;}
+
+      const c1=_off1.getContext('2d');
+      c1.clearRect(0,0,TW,TH);
+      for(const bl of blobs){
+        const bx=bl.hx+bl.dx,by=bl.hy+bl.dy;
+        const g=c1.createRadialGradient(bx,by,0,bx,by,bl.r);
+        g.addColorStop(0,'rgba(255,255,255,1)');
+        g.addColorStop(.5,'rgba(255,255,255,.85)');
+        g.addColorStop(1,'rgba(255,255,255,0)');
+        c1.fillStyle=g;c1.beginPath();c1.arc(bx,by,bl.r,0,Math.PI*2);c1.fill();
+      }
+
+      const c2=_off2.getContext('2d');
+      c2.clearRect(0,0,TW,TH);
+      c2.filter='blur(2px)';c2.drawImage(_off1,0,0);c2.filter='none';
+      const img=c2.getImageData(0,0,TW,TH);
+      const d=img.data;
+      for(let i=0;i<d.length;i+=4){
+        const v=d[i];
+        if(v>60){d[i]=cCloud[0];d[i+1]=cCloud[1];d[i+2]=cCloud[2];d[i+3]=255;}
+        else if(v>30){d[i]=cOutline[0];d[i+1]=cOutline[1];d[i+2]=cOutline[2];d[i+3]=255;}
+        else{d[i]=d[i+1]=d[i+2]=d[i+3]=0;}
+      }
+      c2.putImageData(img,0,0);
+      const dctx=canvas.getContext('2d');
+      dctx.imageSmoothingEnabled=false;
+      dctx.clearRect(0,0,TW,TH);
+      dctx.drawImage(_off2,0,0,TW,TH);
+    }
+
+    function onMM(e){
+      if(!cloudCanvas) return;
+      const r=cloudCanvas.getBoundingClientRect();
+      if(r.width<1) return;
+      mx=(e.clientX-r.left)/r.width*cloudCanvas.width;
+      my=(e.clientY-r.top)/r.height*cloudCanvas.height;
+    }
+    function onML(){ mx=-9999;my=-9999; }
+    window.addEventListener('mousemove',onMM);
+    window.addEventListener('mouseleave',onML);
+
+    let raf,last=0,tick=0;
+    function frame(ts){
+      raf=requestAnimationFrame(frame);
+      if(!visible){ lastEW=0; lastEH=0; blobs=null; return; }
+      if(ts-last<16)return;last=ts;tick++;
+      if(blobs) for(const b of blobs) b.update(mx,my,tick);
+      renderCloud(cloudCanvas,tick);
+    }
+    raf=requestAnimationFrame(frame);
+
+    return ()=>{
+      cancelAnimationFrame(raf);
+      window.removeEventListener('mousemove',onMM);
+      window.removeEventListener('mouseleave',onML);
+      _off1.width = _off1.height = 0;
+      _off2.width = _off2.height = 0;
+      if (cloudCanvas) cloudCanvas.width = cloudCanvas.height = 0;
+      blobs = null;
+    };
+  });
 </script>
 
 {#if visible}
-  <div class="filter-overlay" transition:fade={{ duration: 200 }} on:click|self={onClose}>
-    <div class="filter-container" transition:fly={{ y: 30, duration: 250 }}>
+  <div
+    class="filter-backdrop"
+    class:closing
+    on:click|self={doClose}
+    on:keydown={(e) => e.key === 'Escape' && doClose()}
+    role="dialog"
+    tabindex="-1"
+  >
+    <div class="filter-stage" class:fly-in={anim==='fly-in'} class:fly-out={anim==='fly-out'} class:hidden={anim==='hidden'}>
+      <canvas bind:this={cloudCanvas} class="cloud-cv"></canvas>
+      <div class="filter-content" bind:this={contentEl}>
 
-      <header class="filter-header">
-        <span class="filter-title">{texts.title}</span>
-        <button class="close-btn" on:click={onClose}>X</button>
-      </header>
+        <div class="filter-title">{texts.title}</div>
+        <button class="close-btn" on:click={doClose}>&times;</button>
 
-      <main class="filter-body">
         {#if loading}
           <div class="loading">...</div>
         {:else}
@@ -146,7 +329,7 @@
                 <span class="radio-dot"></span>
                 <span>{texts.allowAll}</span>
               </label>
-              <label class="mode-option recommended" class:active={mode === 'allowOnly'}>
+              <label class="mode-option" class:active={mode === 'allowOnly'}>
                 <input type="radio" bind:group={mode} value="allowOnly" />
                 <span class="radio-dot"></span>
                 <span>{texts.allowOnly}</span>
@@ -192,90 +375,73 @@
               {/if}
             </div>
           {/if}
+
+          <!-- Footer buttons -->
+          <div class="filter-footer">
+            <button class="btn btn-save" on:click={handleSave}>{texts.save}</button>
+            <button class="btn btn-cancel" on:click={doClose}>{texts.cancel}</button>
+          </div>
         {/if}
-      </main>
 
-      <footer class="filter-footer">
-        <button class="btn btn-save" on:click={handleSave}>{texts.save}</button>
-        <button class="btn btn-cancel" on:click={onClose}>{texts.cancel}</button>
-      </footer>
-
+      </div>
     </div>
   </div>
 {/if}
 
-<style lang="scss">
-  .filter-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
-    background: var(--c-backdrop, rgba(0, 0, 0, 0.65));
-    backdrop-filter: blur(5px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
+<style>
+  .filter-backdrop {
+    position: fixed; inset: 0; z-index: 9000;
+    background: var(--c-backdrop);
+    display: flex; align-items: center; justify-content: center;
+    animation: backdropIn 0.3s ease-out both;
+    overflow: visible;
+  }
+  .filter-backdrop.closing { animation: backdropOut 0.5s ease-in both; }
+  @keyframes backdropIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes backdropOut { from { opacity: 1; } to { opacity: 0; } }
+
+  .filter-stage {
+    position: relative; width: 500px; overflow: visible; z-index: 1;
+  }
+  .filter-stage.hidden { visibility: hidden; transform: translateY(-200vh); }
+  .filter-stage.fly-in { animation: flyIn 0.7s cubic-bezier(.23,1.02,.32,1) both; }
+  .filter-stage.fly-out { animation: flyOut 0.5s cubic-bezier(.6,0,.7,.2) both; }
+  @keyframes flyIn { from { opacity: 0; transform: translateY(-120vh); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes flyOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-120vh); } }
+
+  .cloud-cv {
+    position: absolute;
+    image-rendering: pixelated;
+    display: block; pointer-events: none; z-index: 0;
   }
 
-  .filter-container {
-    width: 100%;
-    max-width: 500px;
-    background: var(--c1);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    clip-path: polygon(
-      0px 12px, 4px 12px, 4px 8px, 8px 8px, 8px 4px, 12px 4px, 12px 0px,
-      calc(100% - 12px) 0px, calc(100% - 12px) 4px, calc(100% - 8px) 4px, calc(100% - 8px) 8px, calc(100% - 4px) 8px, calc(100% - 4px) 12px, 100% 12px,
-      100% calc(100% - 12px), calc(100% - 4px) calc(100% - 12px), calc(100% - 4px) calc(100% - 8px), calc(100% - 8px) calc(100% - 8px), calc(100% - 8px) calc(100% - 4px), calc(100% - 12px) calc(100% - 4px), calc(100% - 12px) 100%,
-      12px 100%, 12px calc(100% - 4px), 8px calc(100% - 4px), 8px calc(100% - 8px), 4px calc(100% - 8px), 4px calc(100% - 12px), 0px calc(100% - 12px)
-    );
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+  .filter-content {
+    position: relative; z-index: 2;
+    padding: 4rem 3.5rem 5rem;
+    display: flex; flex-direction: column; gap: 1.2rem;
+    font-family: '8bitwonder', monospace;
+    max-height: 70vh;
+    overflow-y: auto;
+    scrollbar-width: none;
   }
-
-  .filter-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  }
+  .filter-content::-webkit-scrollbar { display: none; }
 
   .filter-title {
-    font-family: '8bitwonder', monospace;
-    font-size: 0.7rem;
-    color: var(--c2);
-    letter-spacing: 0.06em;
+    font-size: 20px; letter-spacing: 0.1em;
+    color: var(--c-text); text-align: center;
   }
 
   .close-btn {
-    font-family: '8bitwonder', monospace;
-    font-size: 0.55rem;
-    color: rgba(255, 255, 255, 0.4);
-    background: none;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    padding: 0.3rem 0.5rem;
-    cursor: pointer;
-    transition: all 0.2s;
-
-    &:hover {
-      color: var(--c2);
-      border-color: rgba(255, 255, 255, 0.3);
-    }
+    position: absolute; top: 0.8rem; right: 0.8rem;
+    background: none; border: none; cursor: pointer;
+    font-size: 1.4rem; color: color-mix(in srgb, var(--c-text) 50%, transparent);
+    font-family: '8bitwonder', monospace; transition: color 0.2s;
   }
-
-  .filter-body {
-    padding: 1.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    max-height: 60vh;
-    overflow-y: auto;
-  }
+  .close-btn:hover { color: var(--c-text); }
 
   .loading {
     text-align: center;
-    color: rgba(255, 255, 255, 0.3);
+    color: color-mix(in srgb, var(--c-text) 30%, transparent);
     font-family: '8bitwonder', monospace;
     font-size: 0.6rem;
     padding: 2rem;
@@ -289,8 +455,8 @@
 
   .section-label {
     font-family: '8bitwonder', monospace;
-    font-size: 0.55rem;
-    color: #B87333;
+    font-size: 16px;
+    color: var(--c1);
     letter-spacing: 0.08em;
   }
 
@@ -305,44 +471,33 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.6rem 1rem;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--c1) 3%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c1) 12%, transparent);
     cursor: pointer;
     transition: all 0.2s;
     font-family: 'Rubik', sans-serif;
     font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.6);
-
-    input { display: none; }
-
-    &:hover {
-      border-color: rgba(184, 115, 51, 0.3);
-      background: rgba(184, 115, 51, 0.05);
-    }
-
-    &.active {
-      border-color: rgba(184, 115, 51, 0.5);
-      background: rgba(184, 115, 51, 0.1);
-      color: var(--c2);
-
-      .radio-dot {
-        background: #B87333;
-      }
-    }
-
-    &.recommended {
-      &.active {
-        border-color: rgba(184, 115, 51, 0.6);
-        background: rgba(184, 115, 51, 0.15);
-      }
-    }
+    color: color-mix(in srgb, var(--c-text) 60%, transparent);
+  }
+  .mode-option input { display: none; }
+  .mode-option:hover {
+    border-color: color-mix(in srgb, var(--c1) 30%, transparent);
+    background: color-mix(in srgb, var(--c1) 6%, transparent);
+  }
+  .mode-option.active {
+    border-color: var(--c1);
+    background: color-mix(in srgb, var(--c1) 10%, transparent);
+    color: var(--c-text);
+  }
+  .mode-option.active .radio-dot {
+    background: var(--c1);
   }
 
   .rec-badge {
     font-family: '8bitwonder', monospace;
     font-size: 0.4rem;
-    color: #B87333;
-    border: 1px solid rgba(184, 115, 51, 0.4);
+    color: var(--c1);
+    border: 1px solid color-mix(in srgb, var(--c1) 40%, transparent);
     padding: 0.15rem 0.4rem;
     margin-left: auto;
     letter-spacing: 0.05em;
@@ -352,7 +507,7 @@
   .radio-dot {
     width: 10px;
     height: 10px;
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    border: 2px solid color-mix(in srgb, var(--c1) 25%, transparent);
     background: transparent;
     transition: all 0.2s;
     flex-shrink: 0;
@@ -361,12 +516,12 @@
   .no-sources {
     font-family: 'Rubik', sans-serif;
     font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.35);
+    color: color-mix(in srgb, var(--c-text) 35%, transparent);
     line-height: 1.6;
     margin: 0;
     padding: 1rem;
     text-align: center;
-    border: 1px dashed rgba(255, 255, 255, 0.08);
+    border: 1px dashed color-mix(in srgb, var(--c1) 15%, transparent);
   }
 
   .sources-list {
@@ -380,36 +535,29 @@
     align-items: flex-start;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--c1) 3%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c1) 10%, transparent);
     cursor: pointer;
     transition: all 0.2s;
-
-    input { display: none; }
-
-    .checkbox-box {
-      margin-top: 2px;
-    }
-
-    &:hover {
-      border-color: rgba(184, 115, 51, 0.3);
-    }
-
-    &.checked {
-      border-color: rgba(184, 115, 51, 0.5);
-      background: rgba(184, 115, 51, 0.08);
-
-      .checkbox-box {
-        background: #B87333;
-        border-color: #B87333;
-      }
-    }
+  }
+  .source-item input { display: none; }
+  .source-item .checkbox-box { margin-top: 2px; }
+  .source-item:hover {
+    border-color: color-mix(in srgb, var(--c1) 30%, transparent);
+  }
+  .source-item.checked {
+    border-color: var(--c1);
+    background: color-mix(in srgb, var(--c1) 8%, transparent);
+  }
+  .source-item.checked .checkbox-box {
+    background: var(--c1);
+    border-color: var(--c1);
   }
 
   .checkbox-box {
     width: 14px;
     height: 14px;
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    border: 2px solid color-mix(in srgb, var(--c1) 25%, transparent);
     background: transparent;
     transition: all 0.2s;
     flex-shrink: 0;
@@ -426,32 +574,29 @@
   .source-name {
     font-family: '8bitwonder', monospace;
     font-size: 0.65rem;
-    color: var(--c2);
+    color: var(--c-text);
   }
 
   .source-media {
     font-family: 'Rubik', sans-serif;
     font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.35);
+    color: color-mix(in srgb, var(--c-text) 35%, transparent);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-
-    &.playing {
-      color: #B87333;
-    }
-
-    &.idle {
-      color: rgba(255, 255, 255, 0.2);
-      font-style: italic;
-    }
+  }
+  .source-media.playing {
+    color: var(--c1);
+  }
+  .source-media.idle {
+    color: color-mix(in srgb, var(--c-text) 20%, transparent);
+    font-style: italic;
   }
 
   .filter-footer {
     display: flex;
     gap: 1rem;
-    padding: 1rem 1.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 0.5rem;
   }
 
   .btn {
@@ -463,27 +608,26 @@
     border: 1px solid;
     cursor: pointer;
     transition: all 0.2s;
+    -webkit-text-stroke: 2px #ffffff;
+    paint-order: stroke fill;
   }
 
   .btn-save {
-    background: rgba(184, 115, 51, 0.2);
-    border-color: #B87333;
-    color: #B87333;
-
-    &:hover {
-      background: rgba(184, 115, 51, 0.35);
-      color: #d4944a;
-    }
+    background: color-mix(in srgb, var(--c1) 10%, transparent);
+    border-color: var(--c1);
+    color: var(--c1);
+  }
+  .btn-save:hover {
+    background: color-mix(in srgb, var(--c1) 20%, transparent);
   }
 
   .btn-cancel {
     background: transparent;
-    border-color: rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.5);
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.05);
-      color: var(--c2);
-    }
+    border-color: color-mix(in srgb, var(--c-text) 20%, transparent);
+    color: color-mix(in srgb, var(--c-text) 50%, transparent);
+  }
+  .btn-cancel:hover {
+    background: color-mix(in srgb, var(--c1) 5%, transparent);
+    color: var(--c-text);
   }
 </style>

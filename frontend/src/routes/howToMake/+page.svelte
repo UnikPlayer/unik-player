@@ -1,13 +1,13 @@
-<script>
+﻿<script>
   import { title, artist, thumbnail, ShowTrack } from '$lib/stores/stores.js';
 
   // Navigation sections
   const sections = [
-    { id: 'getting-started', title: 'Getting Started', titleRu: 'Начало работы' },
-    { id: 'obs-setup', title: 'OBS Setup', titleRu: 'Настройка OBS' },
-    { id: 'colors', title: 'Dynamic Colors', titleRu: 'Динамические цвета' },
-    { id: 'media-info', title: 'Media Info', titleRu: 'Медиа данные' },
-    { id: 'customization', title: 'Customization', titleRu: 'Кастомизация' },
+    { id: 'getting-started', title: 'Getting Started', titleRu: 'РќР°С‡Р°Р»Рѕ СЂР°Р±РѕС‚С‹' },
+    { id: 'obs-setup', title: 'OBS Setup', titleRu: 'РќР°СЃС‚СЂРѕР№РєР° OBS' },
+    { id: 'colors', title: 'Dynamic Colors', titleRu: 'Р”РёРЅР°РјРёС‡РµСЃРєРёРµ С†РІРµС‚Р°' },
+    { id: 'media-info', title: 'Media Info', titleRu: 'РњРµРґРёР° РґР°РЅРЅС‹Рµ' },
+    { id: 'customization', title: 'Customization', titleRu: 'РљР°СЃС‚РѕРјРёР·Р°С†РёСЏ' },
   ];
 
   let activeSection = 'getting-started';
@@ -56,8 +56,8 @@
         </div>
         <div class="section-body">
           <p class="intro-text">
-            UnikPlayer - виджет для OBS. Автоматически определяет музыку из любого приложения:
-            Spotify, YouTube Music, VK, браузеры и другие.
+            UnikPlayer - РІРёРґР¶РµС‚ РґР»СЏ OBS. РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРё РѕРїСЂРµРґРµР»СЏРµС‚ РјСѓР·С‹РєСѓ РёР· Р»СЋР±РѕРіРѕ РїСЂРёР»РѕР¶РµРЅРёСЏ:
+            Spotify, YouTube Music, VK, Р±СЂР°СѓР·РµСЂС‹ Рё РґСЂСѓРіРёРµ.
           </p>
 
           <div class="steps-list">
@@ -66,15 +66,15 @@
             <div class="step">
               <span class="step-num">1</span>
               <div class="step-content">
-                <h4>Выберите виджет</h4>
-                <p>На главной странице выберите понравившийся стиль виджета и нажмите SELECT.</p>
+                <h4>Р’С‹Р±РµСЂРёС‚Рµ РІРёРґР¶РµС‚</h4>
+                <p>РќР° РіР»Р°РІРЅРѕР№ СЃС‚СЂР°РЅРёС†Рµ РІС‹Р±РµСЂРёС‚Рµ РїРѕРЅСЂР°РІРёРІС€РёР№СЃСЏ СЃС‚РёР»СЊ РІРёРґР¶РµС‚Р° Рё РЅР°Р¶РјРёС‚Рµ SELECT.</p>
               </div>
             </div>
             <div class="step">
               <span class="step-num">2</span>
               <div class="step-content">
-                <h4>Добавьте в OBS</h4>
-                <p>Ссылка скопирована в буфер обмена. Создайте Browser Source в OBS и вставьте ссылку.</p>
+                <h4>Р”РѕР±Р°РІСЊС‚Рµ РІ OBS</h4>
+                <p>РЎСЃС‹Р»РєР° СЃРєРѕРїРёСЂРѕРІР°РЅР° РІ Р±СѓС„РµСЂ РѕР±РјРµРЅР°. РЎРѕР·РґР°Р№С‚Рµ Browser Source РІ OBS Рё РІСЃС‚Р°РІСЊС‚Рµ СЃСЃС‹Р»РєСѓ.</p>
               </div>
             </div>
           </div>
@@ -90,28 +90,28 @@
         <div class="section-body">
           <div class="info-box">
             <span class="info-icon">i</span>
-            <p>UnikPlayer работает через локальный сервер на порту 27272. OBS получает данные через Browser Source.</p>
+            <p>UnikPlayer СЂР°Р±РѕС‚Р°РµС‚ С‡РµСЂРµР· Р»РѕРєР°Р»СЊРЅС‹Р№ СЃРµСЂРІРµСЂ РЅР° РїРѕСЂС‚Сѓ 27272. OBS РїРѕР»СѓС‡Р°РµС‚ РґР°РЅРЅС‹Рµ С‡РµСЂРµР· Browser Source.</p>
           </div>
 
-          <h3>Настройка Browser Source</h3>
+          <h3>РќР°СЃС‚СЂРѕР№РєР° Browser Source</h3>
           <div class="code-block">
             <div class="code-header">
               <span>Browser Source Settings</span>
             </div>
             <div class="code-content">
-              <p><strong>URL:</strong> http://192.168.1.132:27272/player?Generic</p>
+              <p><strong>URL:</strong> http://127.0.0.1:27272/player?Generic</p>
               <p><strong>Width:</strong> 500</p>
               <p><strong>Height:</strong> 200</p>
               <p><strong>Custom CSS:</strong> body &#123; background: transparent; &#125;</p>
             </div>
           </div>
 
-          <h3>Доступные виджеты</h3>
+          <h3>Р”РѕСЃС‚СѓРїРЅС‹Рµ РІРёРґР¶РµС‚С‹</h3>
           <ul class="widget-list">
-            <li><code>?Generic</code> - Классический горизонтальный</li>
-            <li><code>?BigHead</code> - Большая обложка слева</li>
-            <li><code>?Separate</code> - Раздельные блоки</li>
-            <li><code>?BackPicture</code> - Обложка на фоне</li>
+            <li><code>?Generic</code> - РљР»Р°СЃСЃРёС‡РµСЃРєРёР№ РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅС‹Р№</li>
+            <li><code>?BigHead</code> - Р‘РѕР»СЊС€Р°СЏ РѕР±Р»РѕР¶РєР° СЃР»РµРІР°</li>
+            <li><code>?Separate</code> - Р Р°Р·РґРµР»СЊРЅС‹Рµ Р±Р»РѕРєРё</li>
+            <li><code>?BackPicture</code> - РћР±Р»РѕР¶РєР° РЅР° С„РѕРЅРµ</li>
           </ul>
         </div>
       </section>
@@ -124,47 +124,47 @@
         </div>
         <div class="section-body">
           <p>
-            Цвета автоматически извлекаются из обложки альбома с помощью библиотеки node-vibrant.
-            Используйте CSS переменные для динамической стилизации.
+            Р¦РІРµС‚Р° Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё РёР·РІР»РµРєР°СЋС‚СЃСЏ РёР· РѕР±Р»РѕР¶РєРё Р°Р»СЊР±РѕРјР° СЃ РїРѕРјРѕС‰СЊСЋ Р±РёР±Р»РёРѕС‚РµРєРё node-vibrant.
+            РСЃРїРѕР»СЊР·СѓР№С‚Рµ CSS РїРµСЂРµРјРµРЅРЅС‹Рµ РґР»СЏ РґРёРЅР°РјРёС‡РµСЃРєРѕР№ СЃС‚РёР»РёР·Р°С†РёРё.
           </p>
 
           <h3>CSS Variables</h3>
           <div class="color-grid">
             <div class="color-item">
-              <div class="color-swatch" style="background: var(--vibrant, #B87333)"></div>
+              <div class="color-swatch" style="background: var(--vibrant, var(--c1))"></div>
               <code>--vibrant</code>
-              <span class="color-desc">Яркий акцент</span>
+              <span class="color-desc">РЇСЂРєРёР№ Р°РєС†РµРЅС‚</span>
             </div>
             <div class="color-item">
               <div class="color-swatch" style="background: var(--muted, #8B6914)"></div>
               <code>--muted</code>
-              <span class="color-desc">Приглушённый</span>
+              <span class="color-desc">РџСЂРёРіР»СѓС€С‘РЅРЅС‹Р№</span>
             </div>
             <div class="color-item">
               <div class="color-swatch" style="background: var(--lightVibrant, #F5DEB3)"></div>
               <code>--lightVibrant</code>
-              <span class="color-desc">Светлый яркий</span>
+              <span class="color-desc">РЎРІРµС‚Р»С‹Р№ СЏСЂРєРёР№</span>
             </div>
             <div class="color-item">
-              <div class="color-swatch" style="background: var(--lightMuted, #B87333)"></div>
+              <div class="color-swatch" style="background: var(--lightMuted, var(--c1))"></div>
               <code>--lightMuted</code>
-              <span class="color-desc">Светлый мягкий</span>
+              <span class="color-desc">РЎРІРµС‚Р»С‹Р№ РјСЏРіРєРёР№</span>
             </div>
             <div class="color-item">
               <div class="color-swatch" style="background: var(--darkVibrant, #5C4033)"></div>
               <code>--darkVibrant</code>
-              <span class="color-desc">Тёмный яркий</span>
+              <span class="color-desc">РўС‘РјРЅС‹Р№ СЏСЂРєРёР№</span>
             </div>
             <div class="color-item">
               <div class="color-swatch" style="background: var(--darkMuted, rgba(20, 15, 10, 0.9))"></div>
               <code>--darkMuted</code>
-              <span class="color-desc">Тёмный мягкий</span>
+              <span class="color-desc">РўС‘РјРЅС‹Р№ РјСЏРіРєРёР№</span>
             </div>
           </div>
 
           <div class="code-block">
             <div class="code-header">
-              <span>Пример использования</span>
+              <span>РџСЂРёРјРµСЂ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёСЏ</span>
             </div>
             <pre class="code-content">.my-widget &#123;
   background-color: var(--darkMuted);
@@ -182,7 +182,7 @@
           <h2>Media Info</h2>
         </div>
         <div class="section-body">
-          <p>Текущие данные о воспроизводимом треке:</p>
+          <p>РўРµРєСѓС‰РёРµ РґР°РЅРЅС‹Рµ Рѕ РІРѕСЃРїСЂРѕРёР·РІРѕРґРёРјРѕРј С‚СЂРµРєРµ:</p>
 
           {#if $ShowTrack && $title}
             <div class="media-display">
@@ -196,17 +196,17 @@
             </div>
           {:else}
             <div class="no-media">
-              <span class="no-media-icon">♪</span>
-              <p>Включите музыку чтобы увидеть данные</p>
+              <span class="no-media-icon">в™Є</span>
+              <p>Р’РєР»СЋС‡РёС‚Рµ РјСѓР·С‹РєСѓ С‡С‚РѕР±С‹ СѓРІРёРґРµС‚СЊ РґР°РЅРЅС‹Рµ</p>
             </div>
           {/if}
 
           <h3>WebSocket API</h3>
           <div class="code-block">
             <div class="code-header">
-              <span>Подключение</span>
+              <span>РџРѕРґРєР»СЋС‡РµРЅРёРµ</span>
             </div>
-            <pre class="code-content">const ws = new WebSocket('ws://192.168.1.132:62727');
+            <pre class="code-content">const ws = new WebSocket('ws://127.0.0.1:62727');
 
 ws.onmessage = (event) => &#123;
   const data = JSON.parse(event.data);
@@ -224,38 +224,38 @@ ws.onmessage = (event) => &#123;
         </div>
         <div class="section-body">
           <p>
-            Используйте встроенный редактор для кастомизации виджетов.
-            Нажмите EDIT на карточке виджета чтобы открыть редактор.
+            РСЃРїРѕР»СЊР·СѓР№С‚Рµ РІСЃС‚СЂРѕРµРЅРЅС‹Р№ СЂРµРґР°РєС‚РѕСЂ РґР»СЏ РєР°СЃС‚РѕРјРёР·Р°С†РёРё РІРёРґР¶РµС‚РѕРІ.
+            РќР°Р¶РјРёС‚Рµ EDIT РЅР° РєР°СЂС‚РѕС‡РєРµ РІРёРґР¶РµС‚Р° С‡С‚РѕР±С‹ РѕС‚РєСЂС‹С‚СЊ СЂРµРґР°РєС‚РѕСЂ.
           </p>
 
-          <h3>Возможности редактора</h3>
+          <h3>Р’РѕР·РјРѕР¶РЅРѕСЃС‚Рё СЂРµРґР°РєС‚РѕСЂР°</h3>
           <ul class="feature-list">
             <li>
               <span class="feature-icon">A</span>
               <div>
                 <strong>Typography</strong>
-                <p>Выбор шрифта из системных или Google Fonts</p>
+                <p>Р’С‹Р±РѕСЂ С€СЂРёС„С‚Р° РёР· СЃРёСЃС‚РµРјРЅС‹С… РёР»Рё Google Fonts</p>
               </div>
             </li>
             <li>
-              <span class="feature-icon">◐</span>
+              <span class="feature-icon">в—ђ</span>
               <div>
                 <strong>Color Mode</strong>
-                <p>Dynamic (из обложки) или Static (ваш выбор)</p>
+                <p>Dynamic (РёР· РѕР±Р»РѕР¶РєРё) РёР»Рё Static (РІР°С€ РІС‹Р±РѕСЂ)</p>
               </div>
             </li>
             <li>
               <span class="feature-icon">&lt;/&gt;</span>
               <div>
                 <strong>CSS Editor</strong>
-                <p>Полный контроль над стилями виджета</p>
+                <p>РџРѕР»РЅС‹Р№ РєРѕРЅС‚СЂРѕР»СЊ РЅР°Рґ СЃС‚РёР»СЏРјРё РІРёРґР¶РµС‚Р°</p>
               </div>
             </li>
           </ul>
 
           <div class="info-box warning">
             <span class="info-icon">!</span>
-            <p>Изменения применяются в реальном времени. Нажмите CONFIRM чтобы сохранить.</p>
+            <p>РР·РјРµРЅРµРЅРёСЏ РїСЂРёРјРµРЅСЏСЋС‚СЃСЏ РІ СЂРµР°Р»СЊРЅРѕРј РІСЂРµРјРµРЅРё. РќР°Р¶РјРёС‚Рµ CONFIRM С‡С‚РѕР±С‹ СЃРѕС…СЂР°РЅРёС‚СЊ.</p>
           </div>
         </div>
       </section>
@@ -265,7 +265,7 @@ ws.onmessage = (event) => &#123;
 
   <!-- Footer -->
   <footer class="docs-footer">
-    <span>UnikPlayer Documentation • v0.7</span>
+    <span>UnikPlayer Documentation вЂў v0.7</span>
   </footer>
 </div>
 
@@ -273,8 +273,8 @@ ws.onmessage = (event) => &#123;
   .docs-page {
     min-height: 100vh;
     position: relative;
-    color: var(--c2);
-    background: var(--c1);
+    color: var(--c-text);
+    background: var(--c2);
   }
 
   // Background
@@ -282,9 +282,9 @@ ws.onmessage = (event) => &#123;
     position: fixed;
     inset: 0;
     background:
-      radial-gradient(ellipse at 20% 20%, rgba(184, 115, 51, 0.06) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 80%, rgba(184, 115, 51, 0.03) 0%, transparent 50%),
-      var(--c1);
+      radial-gradient(ellipse at 20% 20%, rgba(0, 0, 0, 0.03) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(0, 0, 0, 0.02) 0%, transparent 50%),
+      var(--c2);
     z-index: -2;
   }
 
@@ -292,8 +292,8 @@ ws.onmessage = (event) => &#123;
     position: fixed;
     inset: 0;
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+      linear-gradient(color-mix(in srgb, var(--c-text) 1.5%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--c-text) 1.5%, transparent) 1px, transparent 1px);
     background-size: 50px 50px;
     z-index: -1;
   }
@@ -304,10 +304,10 @@ ws.onmessage = (event) => &#123;
     align-items: center;
     justify-content: space-between;
     padding: 1.5rem 3rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid color-mix(in srgb, var(--c-text) 6%, transparent);
     position: sticky;
     top: 0;
-    background: rgba(10, 10, 10, 0.95);
+    background: color-mix(in srgb, var(--c2) 95%, transparent);
     backdrop-filter: blur(10px);
     z-index: 100;
   }
@@ -320,25 +320,25 @@ ws.onmessage = (event) => &#123;
   }
 
   .logo-icon {
-    color: #B87333;
+    color: var(--c1);
     font-family: '8bitwonder', monospace;
     font-size: 1rem;
   }
 
   .logo-text {
     font-family: '8bitwonder', monospace;
-    font-size: 0.7rem;
-    color: var(--c2);
+    font-size: 1rem;
+    color: var(--c-text);
     letter-spacing: 0.06em;
   }
 
   .header-tag {
     font-family: '8bitwonder', monospace;
-    font-size: 0.5rem;
-    color: #B87333;
+    font-size: 1rem;
+    color: var(--c1);
     letter-spacing: 0.08em;
     padding: 0.4rem 1rem;
-    border: 1px solid rgba(184, 115, 51, 0.3);
+    border: 1px solid color-mix(in srgb, var(--c1) 30%, transparent);
   }
 
   // Layout
@@ -353,7 +353,7 @@ ws.onmessage = (event) => &#123;
   // Sidebar
   .docs-sidebar {
     padding: 2rem 1.5rem;
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    border-right: 1px solid color-mix(in srgb, var(--c-text) 6%, transparent);
     position: sticky;
     top: 80px;
     height: fit-content;
@@ -371,23 +371,23 @@ ws.onmessage = (event) => &#123;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
     text-decoration: none;
-    color: rgba(255, 255, 255, 0.4);
+    color: color-mix(in srgb, var(--c-text) 40%, transparent);
     font-family: '8bitwonder', monospace;
-    font-size: 0.5rem;
+    font-size: 1rem;
     letter-spacing: 0.04em;
     transition: all 0.2s;
 
     &:hover {
-      color: var(--c2);
-      background: rgba(255, 255, 255, 0.04);
+      color: var(--c-text);
+      background: color-mix(in srgb, var(--c-text) 4%, transparent);
     }
 
     &.active {
-      color: #B87333;
-      background: rgba(184, 115, 51, 0.1);
+      color: var(--c1);
+      background: color-mix(in srgb, var(--c1) 10%, transparent);
 
       .nav-marker {
-        background: #B87333;
+        background: var(--c1);
       }
     }
   }
@@ -395,7 +395,7 @@ ws.onmessage = (event) => &#123;
   .nav-marker {
     width: 4px;
     height: 4px;
-    background: rgba(255, 255, 255, 0.2);
+    background: color-mix(in srgb, var(--c-text) 20%, transparent);
   }
 
   // Content
@@ -414,43 +414,43 @@ ws.onmessage = (event) => &#123;
     gap: 1rem;
     margin-bottom: 1.5rem;
     padding-bottom: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid color-mix(in srgb, var(--c-text) 8%, transparent);
 
     h2 {
       font-family: '8bitwonder', monospace;
-      font-size: 0.85rem;
+      font-size: 1rem;
       margin: 0;
-      color: var(--c2);
+      color: var(--c-text);
       letter-spacing: 0.06em;
     }
   }
 
   .section-number {
     font-family: '8bitwonder', monospace;
-    font-size: 0.55rem;
-    color: #B87333;
+    font-size: 1rem;
+    color: var(--c1);
   }
 
   .section-body {
     h3 {
       font-family: '8bitwonder', monospace;
-      font-size: 0.65rem;
-      color: var(--c2);
+      font-size: 1rem;
+      color: var(--c-text);
       margin: 2rem 0 1rem;
       letter-spacing: 0.06em;
     }
 
     p {
       font-family: 'Rubik', sans-serif;
-      font-size: 0.85rem;
-      color: rgba(255, 255, 255, 0.55);
+      font-size: 1rem;
+      color: color-mix(in srgb, var(--c-text) 55%, transparent);
       line-height: 1.8;
       margin: 0 0 1rem;
     }
   }
 
   .intro-text {
-    font-size: 0.95rem !important;
+    font-size: 1rem !important;
     max-width: 600px;
   }
 
@@ -474,19 +474,19 @@ ws.onmessage = (event) => &#123;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(184, 115, 51, 0.15);
-    border: 1px solid rgba(184, 115, 51, 0.35);
+    background: color-mix(in srgb, var(--c1) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c1) 35%, transparent);
     font-family: '8bitwonder', monospace;
-    font-size: 0.65rem;
-    color: #B87333;
+    font-size: 1rem;
+    color: var(--c1);
     flex-shrink: 0;
   }
 
   .step-content {
     h4 {
       font-family: '8bitwonder', monospace;
-      font-size: 0.6rem;
-      color: var(--c2);
+      font-size: 1rem;
+      color: var(--c-text);
       margin: 0 0 0.5rem;
       letter-spacing: 0.04em;
     }
@@ -501,17 +501,17 @@ ws.onmessage = (event) => &#123;
     display: flex;
     gap: 1rem;
     padding: 1rem 1.5rem;
-    background: rgba(184, 115, 51, 0.08);
-    border: 1px solid rgba(184, 115, 51, 0.25);
+    background: color-mix(in srgb, var(--c1) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c1) 25%, transparent);
     margin: 1.5rem 0;
 
     &.warning {
-      background: rgba(239, 191, 51, 0.08);
-      border-color: rgba(239, 191, 51, 0.25);
+      background: color-mix(in srgb, var(--c1) 8%, transparent);
+      border-color: color-mix(in srgb, var(--c1) 25%, transparent);
 
       .info-icon {
-        color: #efbf33;
-        background: rgba(239, 191, 51, 0.15);
+        color: var(--c1);
+        background: color-mix(in srgb, var(--c1) 15%, transparent);
       }
     }
 
@@ -526,47 +526,47 @@ ws.onmessage = (event) => &#123;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(184, 115, 51, 0.15);
+    background: color-mix(in srgb, var(--c1) 15%, transparent);
     font-family: '8bitwonder', monospace;
-    font-size: 0.5rem;
-    color: #B87333;
+    font-size: 1rem;
+    color: var(--c1);
     flex-shrink: 0;
   }
 
   // Code Block
   .code-block {
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--c1) 40%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c-text) 8%, transparent);
     overflow: hidden;
     margin: 1.5rem 0;
   }
 
   .code-header {
     padding: 0.6rem 1rem;
-    background: rgba(0, 0, 0, 0.3);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--c1) 30%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--c-text) 8%, transparent);
     font-family: '8bitwonder', monospace;
-    font-size: 0.45rem;
-    color: rgba(255, 255, 255, 0.35);
+    font-size: 1rem;
+    color: color-mix(in srgb, var(--c-text) 35%, transparent);
     letter-spacing: 0.04em;
   }
 
   .code-content {
     padding: 1rem;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem;
-    color: #E8D4B8;
+    font-size: 1rem;
+    color: var(--c-text);
     line-height: 1.8;
     margin: 0;
     white-space: pre-wrap;
 
     p {
       margin: 0.3rem 0;
-      color: #E8D4B8;
+      color: var(--c-text);
     }
 
     strong {
-      color: #B87333;
+      color: var(--c1);
     }
   }
 
@@ -579,16 +579,16 @@ ws.onmessage = (event) => &#123;
     li {
       padding: 0.5rem 0;
       font-family: 'Rubik', sans-serif;
-      font-size: 0.85rem;
-      color: rgba(255, 255, 255, 0.55);
+      font-size: 1rem;
+      color: color-mix(in srgb, var(--c-text) 55%, transparent);
 
       code {
-        background: rgba(184, 115, 51, 0.15);
+        background: color-mix(in srgb, var(--c1) 15%, transparent);
         padding: 0.2rem 0.5rem;
-        color: #B87333;
+        color: var(--c1);
         margin-right: 0.5rem;
         font-family: '8bitwonder', monospace;
-        font-size: 0.5rem;
+        font-size: 1rem;
       }
     }
   }
@@ -606,26 +606,26 @@ ws.onmessage = (event) => &#123;
     flex-direction: column;
     gap: 0.5rem;
     padding: 1rem;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--c-text) 3%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c-text) 8%, transparent);
 
     code {
       font-family: '8bitwonder', monospace;
-      font-size: 0.45rem;
-      color: #B87333;
+      font-size: 1rem;
+      color: var(--c1);
     }
   }
 
   .color-swatch {
     width: 100%;
     height: 40px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid color-mix(in srgb, var(--c-text) 10%, transparent);
   }
 
   .color-desc {
     font-family: 'Rubik', sans-serif;
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.4);
+    font-size: 1rem;
+    color: color-mix(in srgb, var(--c-text) 40%, transparent);
   }
 
   // Media Display
@@ -634,8 +634,8 @@ ws.onmessage = (event) => &#123;
     gap: 1.5rem;
     align-items: center;
     padding: 1.5rem;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--c-text) 3%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c-text) 8%, transparent);
     margin: 1.5rem 0;
   }
 
@@ -643,7 +643,7 @@ ws.onmessage = (event) => &#123;
     width: 80px;
     height: 80px;
     object-fit: cover;
-    border: 2px solid rgba(184, 115, 51, 0.3);
+    border: 2px solid color-mix(in srgb, var(--c1) 30%, transparent);
   }
 
   .media-info {
@@ -655,15 +655,15 @@ ws.onmessage = (event) => &#123;
 
   .media-label {
     font-family: '8bitwonder', monospace;
-    font-size: 0.45rem;
-    color: rgba(255, 255, 255, 0.3);
+    font-size: 1rem;
+    color: color-mix(in srgb, var(--c-text) 30%, transparent);
     letter-spacing: 0.08em;
   }
 
   .media-value {
     font-family: 'Rubik', sans-serif;
-    font-size: 0.9rem;
-    color: var(--c2);
+    font-size: 1rem;
+    color: var(--c-text);
   }
 
   .no-media {
@@ -672,20 +672,20 @@ ws.onmessage = (event) => &#123;
     align-items: center;
     gap: 1rem;
     padding: 3rem;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px dashed rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--c-text) 2%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--c-text) 8%, transparent);
     margin: 1.5rem 0;
 
     p {
       margin: 0;
-      color: rgba(255, 255, 255, 0.3);
+      color: color-mix(in srgb, var(--c-text) 30%, transparent);
       font-family: 'Rubik', sans-serif;
     }
   }
 
   .no-media-icon {
     font-size: 2rem;
-    color: rgba(255, 255, 255, 0.15);
+    color: color-mix(in srgb, var(--c-text) 15%, transparent);
   }
 
   // Feature List
@@ -701,13 +701,13 @@ ws.onmessage = (event) => &#123;
       display: flex;
       gap: 1rem;
       padding: 1rem;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: color-mix(in srgb, var(--c-text) 3%, transparent);
+      border: 1px solid color-mix(in srgb, var(--c-text) 8%, transparent);
 
       strong {
         font-family: '8bitwonder', monospace;
-        font-size: 0.55rem;
-        color: var(--c2);
+        font-size: 1rem;
+        color: var(--c-text);
         display: block;
         margin-bottom: 0.25rem;
         letter-spacing: 0.04em;
@@ -715,7 +715,7 @@ ws.onmessage = (event) => &#123;
 
       p {
         margin: 0;
-        font-size: 0.8rem;
+        font-size: 1rem;
       }
     }
   }
@@ -726,21 +726,21 @@ ws.onmessage = (event) => &#123;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(184, 115, 51, 0.15);
+    background: color-mix(in srgb, var(--c1) 15%, transparent);
     font-family: '8bitwonder', monospace;
-    font-size: 0.55rem;
-    color: #B87333;
+    font-size: 1rem;
+    color: var(--c1);
     flex-shrink: 0;
   }
 
   // Footer
   .docs-footer {
     padding: 2rem 3rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid color-mix(in srgb, var(--c-text) 6%, transparent);
     text-align: center;
     font-family: '8bitwonder', monospace;
-    font-size: 0.45rem;
-    color: rgba(255, 255, 255, 0.2);
+    font-size: 1rem;
+    color: color-mix(in srgb, var(--c-text) 20%, transparent);
     letter-spacing: 0.04em;
   }
 

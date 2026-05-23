@@ -9,524 +9,371 @@
     export let mode = "dynamic";
     export let color = "#B87333";
 
-    let showColorWheel = false;
-    let hue = 30;
-    let saturation = 70;
-    let lightness = 46;
-    let isDragging = false;
-    let wheelEl;
+    const palette = [
+        ["--vibrant", "#D4944A"],
+        ["--lightVibrant", "#F5DEB3"],
+        ["--darkVibrant", "#5C4033"],
+        ["--muted", "#8B6914"],
+        ["--lightMuted", "#B87333"],
+        ["--darkMuted", "#1a1510"],
+    ];
 
-    onMount(() => {
-        if (color && color.startsWith("#")) {
-            const rgb = hexToRgb(color);
-            if (rgb) {
-                const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-                hue = hsl.h;
-                saturation = hsl.s;
-                lightness = hsl.l;
-            }
-        }
-    });
-
-    function updateColorFromHSL() {
-        if (mode === "static") {
-            color = hslToHex(hue, saturation, lightness);
-        }
+    function rgbStrToHex(rgb) {
+        const m = rgb.match(/\d+/g);
+        if (!m || m.length < 3) return null;
+        const toHex = (n) => (+n).toString(16).padStart(2, "0");
+        return `#${toHex(m[0])}${toHex(m[1])}${toHex(m[2])}`.toUpperCase();
     }
 
-    function handleHexInput(e) {
-        let val = e.target.value.trim();
-        if (!val.startsWith("#")) val = "#" + val;
-        if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
-            color = val;
-            const rgb = hexToRgb(val);
-            if (rgb) {
-                const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-                hue = hsl.h;
-                saturation = hsl.s;
-                lightness = hsl.l;
+    function copyText(text) {
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).catch(() => {});
+                return;
             }
-        }
+        } catch {}
+        // Fallback for insecure contexts (HTTP / LAN IP)
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try { document.execCommand("copy"); } catch {}
+        document.body.removeChild(ta);
     }
 
-    function copyColorVar(varName) {
-        navigator.clipboard.writeText(varName);
-        const text = $language === "ru" ? "Скопировано!" : "Copied!";
-        notificationText.set(text);
+    function copyDotHex(e) {
+        const bg = getComputedStyle(e.currentTarget).backgroundColor;
+        const hex = rgbStrToHex(bg) || bg;
+        copyText(hex);
+        notificationText.set(
+            $language === "ru" ? `Скопировано: ${hex}` : `Copied: ${hex}`,
+        );
+        ShowNotification.set(false);
         ShowNotification.set(true);
     }
 
-    function triggerBtnAnim(e) {
-        const btn = e.currentTarget;
-        btn.classList.remove("pressing");
-        void btn.offsetWidth;
-        btn.classList.add("pressing");
-        setTimeout(() => btn.classList.remove("pressing"), 200);
-    }
+    let hue = 30;
+    let saturation = 70;
+    let lightness = 50;
+    let dragging = false;
+    let wheelEl;
 
-    function hexToRgb(hex) {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result
-            ? {
-                  r: parseInt(result[1], 16),
-                  g: parseInt(result[2], 16),
-                  b: parseInt(result[3], 16),
-              }
-            : null;
-    }
+    onMount(() => {
+        const hsl = hexToHsl(color);
+        if (hsl) ({ h: hue, s: saturation, l: lightness } = hsl);
+    });
 
-    function rgbToHsl(r, g, b) {
-        r /= 255;
-        g /= 255;
-        b /= 255;
-        const max = Math.max(r, g, b),
-            min = Math.min(r, g, b);
-        let h = 0,
-            s = 0,
-            l = (max + min) / 2;
-
+    function hexToHsl(hex) {
+        const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        if (!m) return null;
+        let r = parseInt(m[1], 16) / 255;
+        let g = parseInt(m[2], 16) / 255;
+        let b = parseInt(m[3], 16) / 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h = 0, s = 0, l = (max + min) / 2;
         if (max !== min) {
             const d = max - min;
             s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-            switch (max) {
-                case r:
-                    h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-                    break;
-                case g:
-                    h = ((b - r) / d + 2) / 6;
-                    break;
-                case b:
-                    h = ((r - g) / d + 4) / 6;
-                    break;
-            }
+            if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+            else if (max === g) h = ((b - r) / d + 2) / 6;
+            else h = ((r - g) / d + 4) / 6;
         }
-        return {
-            h: Math.round(h * 360),
-            s: Math.round(s * 100),
-            l: Math.round(l * 100),
-        };
+        return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
     }
 
     function hslToHex(h, s, l) {
-        s /= 100;
-        l /= 100;
+        s /= 100; l /= 100;
         const a = s * Math.min(l, 1 - l);
         const f = (n) => {
             const k = (n + h / 30) % 12;
-            const clr = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-            return Math.min(255, Math.max(0, Math.round(255 * clr)))
-                .toString(16)
-                .padStart(2, "0");
+            const c = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+            return Math.round(255 * c).toString(16).padStart(2, "0");
         };
         return `#${f(0)}${f(8)}${f(4)}`;
     }
 
-    function updateFromPosition(clientX, clientY) {
-        if (!wheelEl) return;
-
-        const rect = wheelEl.getBoundingClientRect();
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
-        const x = clientX - rect.left - centerX;
-        const y = clientY - rect.top - centerY;
-
-        let angle = Math.atan2(y, x) * (180 / Math.PI);
-        let cssAngle = (angle + 90 + 360) % 360;
-
-        const maxRadius = rect.width / 2;
-        const distance = Math.min(Math.sqrt(x * x + y * y) / maxRadius, 1);
-
-        hue = Math.round(cssAngle);
-        saturation = Math.round(distance * 100);
-        updateColorFromHSL();
+    function pickFromMouse(e) {
+        const r = wheelEl.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        const dx = e.clientX - cx;
+        const dy = e.clientY - cy;
+        const angle = (Math.atan2(dy, dx) * 180 / Math.PI + 90 + 360) % 360;
+        const dist = Math.min(Math.hypot(dx, dy) / (r.width / 2), 1);
+        hue = Math.round(angle);
+        saturation = Math.round(dist * 100);
+        color = hslToHex(hue, saturation, lightness);
     }
 
-    function handleWheelMouseDown(e) {
-        isDragging = true;
-        updateFromPosition(e.clientX, e.clientY);
+    function onWheelDown(e) { dragging = true; pickFromMouse(e); }
+    function onWheelMove(e) { if (dragging) pickFromMouse(e); }
+    function onWheelUp() { dragging = false; }
+
+    function onLightness(e) {
+        lightness = +e.target.value;
+        color = hslToHex(hue, saturation, lightness);
     }
 
-    function handleWheelMouseMove(e) {
-        if (isDragging) {
-            updateFromPosition(e.clientX, e.clientY);
+    function onHexInput(e) {
+        const v = e.target.value.trim().replace(/^#/, "");
+        if (/^[0-9A-Fa-f]{6}$/.test(v)) {
+            color = "#" + v;
+            const hsl = hexToHsl(color);
+            if (hsl) ({ h: hue, s: saturation, l: lightness } = hsl);
         }
     }
 
-    function handleWheelMouseUp() {
-        isDragging = false;
-    }
-
-    function handleLightnessChange(e) {
-        lightness = parseInt(e.target.value);
-        updateColorFromHSL();
-    }
-
-    $: indicatorAngle = hue - 90;
-    $: indicatorDistance = saturation * 0.5;
+    const WHEEL_SIZE = 80;
+    $: dotAngle = hue;
+    $: dotRadius = (saturation / 100) * (WHEEL_SIZE / 2);
 </script>
 
-<svelte:window
-    on:mousemove={handleWheelMouseMove}
-    on:mouseup={handleWheelMouseUp}
-/>
+<svelte:window on:mousemove={onWheelMove} on:mouseup={onWheelUp} />
 
-<div class="color-picker">
-    <div class="mode-toggle">
-        <button
-            class="mode-btn"
-            class:active={mode === "dynamic"}
-            on:click={(e) => {
-                triggerBtnAnim(e);
-                mode = "dynamic";
-                showColorWheel = false;
-            }}
-        >
-            DYNAMIC
-        </button>
-        <button
-            class="mode-btn"
-            class:active={mode === "static"}
-            on:click={(e) => {
-                triggerBtnAnim(e);
-                mode = "static";
-                showColorWheel = true;
-            }}
-        >
-            STATIC
-        </button>
+<div class="picker">
+    <div class="modes">
+        <button class:on={mode === "dynamic"} on:click={() => (mode = "dynamic")}>DYNAMIC</button>
+        <button class:on={mode === "static"} on:click={() => (mode = "static")}>STATIC</button>
     </div>
 
     {#if mode === "static"}
-        <div class="color-controls">
-            <div class="hex-row">
-                <button
-                    class="color-swatch"
-                    style="background: {color}"
-                    on:click={() => (showColorWheel = !showColorWheel)}
-                    aria-label="Toggle color wheel"
-                ></button>
-                <input
-                    type="text"
-                    class="hex-input"
-                    value={color.toUpperCase()}
-                    on:input={handleHexInput}
-                    maxlength="7"
-                    spellcheck="false"
-                />
-            </div>
+        <div class="hex">
+            <span class="swatch" style="background: {color}"></span>
+            <span class="hash">#</span>
+            <input
+                type="text"
+                value={color.replace(/^#/, "").toUpperCase()}
+                on:input={onHexInput}
+                maxlength="6"
+                spellcheck="false"
+            />
+        </div>
 
-            {#if showColorWheel}
-                <div class="color-wheel-container">
-                    <div
-                        class="color-wheel"
-                        bind:this={wheelEl}
-                        on:mousedown={handleWheelMouseDown}
-                        on:keydown={() => {}}
-                        role="slider"
-                        tabindex="0"
-                        aria-label="Color wheel"
-                        aria-valuenow={hue}
-                    >
-                        <div
-                            class="wheel-indicator"
-                            style="transform: rotate({indicatorAngle}deg) translateX({indicatorDistance}px);"
-                        ></div>
-                    </div>
+        <div
+            class="wheel"
+            bind:this={wheelEl}
+            on:mousedown={onWheelDown}
+            role="slider"
+            tabindex="0"
+            aria-valuenow={hue}
+            aria-label="Color wheel"
+        >
+            <div
+                class="wheel-dot"
+                style="transform: translate(-50%, -50%) rotate({dotAngle}deg) translateY(-{dotRadius}px);"
+            ></div>
+        </div>
 
-                    <div class="lightness-control">
-                        <span class="slider-label">L</span>
-                        <input
-                            type="range"
-                            min="10"
-                            max="90"
-                            value={lightness}
-                            on:input={handleLightnessChange}
-                            class="lightness-slider"
-                        />
-                        <span class="slider-value">{lightness}%</span>
-                    </div>
-                </div>
-            {/if}
+        <div class="lrow">
+            <span>L</span>
+            <input type="range" min="10" max="90" value={lightness} on:input={onLightness} />
+            <span>{lightness}</span>
         </div>
     {:else}
-        <div class="dynamic-info">
-            <span class="info-text">Colors sync from album art</span>
-            <div class="palette-preview">
-                <button
-                    class="palette-dot"
-                    style="background: var(--vibrant, #D4944A)"
-                    on:click={() => copyColorVar("var(--vibrant)")}
-                >
-                    <span class="tooltip">var(--vibrant)</span>
-                </button>
-                <button
-                    class="palette-dot"
-                    style="background: var(--lightVibrant, #F5DEB3)"
-                    on:click={() => copyColorVar("var(--lightVibrant)")}
-                >
-                    <span class="tooltip">var(--lightVibrant)</span>
-                </button>
-                <button
-                    class="palette-dot"
-                    style="background: var(--darkVibrant, #5C4033)"
-                    on:click={() => copyColorVar("var(--darkVibrant)")}
-                >
-                    <span class="tooltip">var(--darkVibrant)</span>
-                </button>
-                <button
-                    class="palette-dot"
-                    style="background: var(--muted, #8B6914)"
-                    on:click={() => copyColorVar("var(--muted)")}
-                >
-                    <span class="tooltip">var(--muted)</span>
-                </button>
-                <button
-                    class="palette-dot"
-                    style="background: var(--lightMuted, #B87333)"
-                    on:click={() => copyColorVar("var(--lightMuted)")}
-                >
-                    <span class="tooltip">var(--lightMuted)</span>
-                </button>
-                <button
-                    class="palette-dot"
-                    style="background: var(--darkMuted, #1a1510)"
-                    on:click={() => copyColorVar("var(--darkMuted)")}
-                >
-                    <span class="tooltip">var(--darkMuted)</span>
-                </button>
+        <div class="dyn">
+            <span class="info">Colors sync from album art</span>
+            <div class="palette">
+                {#each palette as [v, fb]}
+                    <button
+                        class="dot"
+                        style="background: var({v}, {fb})"
+                        aria-label="Copy {v.replace(/^--/, '')}"
+                        on:click={copyDotHex}
+                    >
+                        <span class="dot-tooltip">{v.replace(/^--/, "")}</span>
+                    </button>
+                {/each}
             </div>
         </div>
     {/if}
 </div>
 
 <style lang="scss">
-    .color-picker {
+    .picker {
         display: flex;
         flex-direction: column;
-        gap: 0.75rem;
-    }
-
-    .mode-toggle {
-        display: flex;
         gap: 0.5rem;
     }
 
-    .mode-btn {
-        flex: 1;
-        padding: 0.6rem 1rem;
-        font-family: '8bitwonder', monospace;
-        font-size: 1rem;
-        letter-spacing: 0.06em;
-        background: transparent;
-        border: 1px solid rgba(0, 0, 0, 0.12);
-        color: var(--c1);
-        cursor: pointer;
-        transition: color 0.2s, background 0.2s, border-color 0.2s;
-        transform-origin: center center;
+    .modes {
+        display: flex;
+        gap: 0.4rem;
 
-        &:hover {
-            background: rgba(0, 0, 0, 0.06);
+        button {
+            flex: 1;
+            min-width: 0;
+            padding: 0.5rem 0.3rem;
+            font-family: '8bitwonder', monospace;
+            font-size: 0.8rem;
+            background: transparent;
+            border: 3px solid rgba(0, 0, 0, 0.15);
             color: var(--c1);
-        }
-
-        &:global(.pressing) {
-            animation: btnSquish 0.2s ease-out forwards;
-        }
-
-        &.active {
-            background: rgba(0, 0, 0, 0.08);
-            border-color: var(--c1);
-            color: var(--c1);
-        }
-    }
-
-    @keyframes btnSquish {
-        0% { transform: scale(1, 1); }
-        35% { transform: scale(1.08, 0.85); }
-        65% { transform: scale(0.92, 1.08); }
-        100% { transform: scale(1, 1); }
-    }
-
-    .color-controls {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
-    .hex-row {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .color-swatch {
-        width: 36px;
-        height: 36px;
-        border: 1px solid rgba(0, 0, 0, 0.2);
-        cursor: pointer;
-        transition: all 0.2s ease;
-        flex-shrink: 0;
-
-        &:hover {
-            border-color: rgba(0, 0, 0, 0.5);
-            transform: scale(1.05);
-        }
-    }
-
-    .hex-input {
-        flex: 1;
-        padding: 0.5rem 0.75rem;
-        background: rgba(0, 0, 0, 0.05);
-        border: 1px solid rgba(0, 0, 0, 0.12);
-        font-family: '8bitwonder', monospace;
-        font-size: 1rem;
-        color: var(--c1);
-        text-transform: uppercase;
-        outline: none;
-        transition: all 0.2s ease;
-
-        &:focus {
-            border-color: var(--c1);
-            background: rgba(0, 0, 0, 0.08);
-        }
-    }
-
-    .color-wheel-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 1rem;
-        padding: 1rem;
-        background: rgba(0, 0, 0, 0.04);
-    }
-
-    .color-wheel {
-        width: 120px;
-        height: 120px;
-        border-radius: 50%;
-        background: conic-gradient(
-            from 0deg,
-            hsl(0, 100%, 50%), hsl(60, 100%, 50%), hsl(120, 100%, 50%),
-            hsl(180, 100%, 50%), hsl(240, 100%, 50%), hsl(300, 100%, 50%),
-            hsl(360, 100%, 50%)
-        );
-        position: relative;
-        cursor: crosshair;
-
-        &::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            border-radius: 50%;
-            background: radial-gradient(circle, white 0%, transparent 70%);
-        }
-    }
-
-    .wheel-indicator {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 12px;
-        height: 12px;
-        margin: -6px 0 0 -6px;
-        border: 2px solid var(--c1);
-        border-radius: 50%;
-        box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
-        pointer-events: none;
-        z-index: 1;
-    }
-
-    .lightness-control {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        width: 100%;
-    }
-
-    .slider-label,
-    .slider-value {
-        font-family: '8bitwonder', monospace;
-        font-size: 1rem;
-        color: var(--c1);
-        min-width: 2rem;
-    }
-
-    .slider-value { text-align: right; }
-
-    .lightness-slider {
-        flex: 1;
-        height: 4px;
-        -webkit-appearance: none;
-        appearance: none;
-        background: linear-gradient(90deg, #000, #fff);
-        cursor: pointer;
-
-        &::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 12px;
-            height: 12px;
-            background: var(--c1);
-            border-radius: 50%;
-            border: 2px solid rgba(0, 0, 0, 0.3);
             cursor: pointer;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+
+            &.on {
+                border-color: var(--c1);
+                background: rgba(0, 0, 0, 0.06);
+            }
         }
     }
 
-    .dynamic-info {
+    .dyn {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 0.5rem;
-        padding: 0.75rem;
+        gap: 0.4rem;
+        padding: 0.5rem;
         background: rgba(0, 0, 0, 0.03);
     }
 
-    .info-text {
+    .info {
         font-family: 'Rubik', sans-serif;
-        font-size: 1rem;
+        font-size: 0.8rem;
         color: var(--c1);
         text-align: center;
     }
 
-    .palette-preview {
+    .palette {
         display: flex;
-        justify-content: center;
-        gap: 0.5rem;
+        gap: 0.4rem;
+        padding-top: 0.5rem;
     }
 
-    .palette-dot {
+    .palette .dot {
         position: relative;
-        width: 24px;
-        height: 24px;
-        border: 1px solid rgba(0, 0, 0, 0.15);
+        width: 32px;
+        height: 32px;
+        border: 3px solid rgba(0, 0, 0, 0.2);
+        background: #888;
         cursor: pointer;
-        transition: transform 0.2s, box-shadow 0.15s;
-
-        &:active { transform: scale(0.9); box-shadow: 0 0 10px currentColor; }
+        padding: 0;
+        transition: transform 0.15s;
 
         &:hover {
-            transform: scale(1.2);
-            z-index: 10;
-            .tooltip { opacity: 1; visibility: visible; }
+            transform: scale(1.15);
+            z-index: 5;
+
+            .dot-tooltip {
+                opacity: 1;
+                transform: translate(-50%, -4px);
+            }
         }
     }
 
-    .tooltip {
+    .dot-tooltip {
         position: absolute;
         bottom: 100%;
         left: 50%;
-        transform: translateX(-50%);
-        padding: 0.3rem 0.5rem;
-        background: rgba(255, 255, 255, 0.95);
-        border: 1px solid rgba(0, 0, 0, 0.15);
+        transform: translate(-50%, 0);
+        padding: 0.25rem 0.45rem;
+        background: var(--c1);
+        color: #fff;
         font-family: '8bitwonder', monospace;
-        font-size: 1rem;
-        color: var(--c1);
+        font-size: 0.7rem;
         white-space: nowrap;
         opacity: 0;
-        visibility: hidden;
-        transition: all 0.2s;
-        margin-bottom: 4px;
         pointer-events: none;
+        transition: opacity 0.15s, transform 0.15s;
+    }
+
+    .hex {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .swatch {
+        width: 28px;
+        height: 28px;
+        border: 3px solid rgba(0, 0, 0, 0.2);
+        flex-shrink: 0;
+    }
+
+    .hash {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 0.8rem;
+        color: var(--c1);
+    }
+
+    .hex input {
+        flex: 1;
+        min-width: 0;
+        padding: 0.3rem 0.5rem;
+        background: rgba(0, 0, 0, 0.05);
+        border: 3px solid rgba(0, 0, 0, 0.15);
+        font-family: '8bitwonder', monospace;
+        font-size: 0.95rem;
+        color: var(--c1);
+        text-transform: uppercase;
+        outline: none;
+    }
+
+    .wheel {
+        align-self: center;
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background:
+            radial-gradient(circle, white 0%, transparent 70%),
+            conic-gradient(
+                from 0deg,
+                hsl(0, 100%, 50%), hsl(60, 100%, 50%), hsl(120, 100%, 50%),
+                hsl(180, 100%, 50%), hsl(240, 100%, 50%), hsl(300, 100%, 50%),
+                hsl(360, 100%, 50%)
+            );
+        position: relative;
+        cursor: crosshair;
+    }
+
+    .wheel-dot {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 10px;
+        height: 10px;
+        border: 2px solid var(--c1);
+        border-radius: 50%;
+        background: transparent;
+        pointer-events: none;
+    }
+
+    .lrow {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+
+        span {
+            font-family: '8bitwonder', monospace;
+            font-size: 0.85rem;
+            color: var(--c1);
+            min-width: 1.5rem;
+            text-align: center;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            min-width: 0;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: linear-gradient(90deg, #000, #fff);
+            cursor: pointer;
+
+            &::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                width: 12px;
+                height: 12px;
+                background: var(--c1);
+                border-radius: 50%;
+                cursor: pointer;
+            }
+        }
     }
 </style>

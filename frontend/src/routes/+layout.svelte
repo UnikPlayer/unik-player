@@ -9,6 +9,8 @@
     connect();
   });
 
+  $: isPlayer = page.url?.pathname === '/player';
+
   $: {
     showHeader = page.url?.pathname !== '/player' && page.url?.pathname !== '/';
   }
@@ -34,8 +36,10 @@
   </defs>
 </svg>
 
-<!-- Background -->
-<div class="bg-gradient"></div>
+<!-- Background (not on player page — needs transparent for OBS) -->
+{#if !isPlayer}
+  <div class="bg-gradient"></div>
+{/if}
 
 {#if showHeader}
   <header>
@@ -76,7 +80,7 @@
     font-family: '8bitwonder', monospace;
     font-size: 1rem;
     letter-spacing: 0.05em;
-    color: rgba(255, 255, 255, 0.5);
+    color: color-mix(in srgb, var(--c1) 50%, transparent);
     transition: color 0.2s;
     background: none;
     border: none;
@@ -84,11 +88,11 @@
   }
 
   .nav-link:visited {
-    color: rgba(255, 255, 255, 0.5);
+    color: color-mix(in srgb, var(--c1) 50%, transparent);
   }
 
   .nav-link:hover {
-    color: white;
+    color: var(--c1);
     text-decoration: none;
   }
 
@@ -102,15 +106,14 @@
     position: sticky;
     top: 0;
     z-index: 50;
-    background: rgba(255, 255, 255, 0.85);
+    background: color-mix(in srgb, var(--c2) 85%, transparent);
     backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid color-mix(in srgb, var(--c1) 5%, transparent);
   }
 
   :global(html, body, main) {
     margin: 0;
     padding: 0;
-    background-color: #ffffff;
   }
 
   :global(h1, h2, h3, h4, h5, h6, p) {

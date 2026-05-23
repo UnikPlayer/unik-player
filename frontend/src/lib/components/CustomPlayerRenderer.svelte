@@ -1,4 +1,4 @@
-<script>
+﻿<script>
     import { onMount, tick } from "svelte";
     import { fly } from "svelte/transition";
     import {
@@ -9,7 +9,7 @@
     } from "$lib/stores/stores.js";
 
     function getApiBase() {
-        if (typeof window === "undefined") return "http://192.168.1.132:27272";
+        if (typeof window === "undefined") return "http://127.0.0.1:27272";
         const port = window.location.port;
         if (port === "7270" || port === "5173") return "";
         return "";
@@ -36,10 +36,10 @@
     let iframeEl = null;
     let iframeReady = false;
 
-    // Track key — only recreate iframe on track change, NOT on progress
+    // Track key вЂ” only recreate iframe on track change, NOT on progress
     $: trackKey = `${title}||${artist}`;
 
-    // Runtime script injected into iframe — handles postMessage updates
+    // Runtime script injected into iframe вЂ” handles postMessage updates
     const RUNTIME_SCRIPT = `
 <script>
   window.addEventListener('message', function(e) {
@@ -114,7 +114,7 @@
             .replace(/\{\{artist\}\}/g, escapeHtml(data.artist || ""))
             .replace(/\{\{thumbnail\}\}/g, data.thumbnail || "");
 
-        // Remove old {{progress}} etc placeholders — set initial values
+        // Remove old {{progress}} etc placeholders вЂ” set initial values
         html = html
             .replace(/\{\{progress\}\}/g, "0")
             .replace(/\{\{position\}\}/g, "0")
