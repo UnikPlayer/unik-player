@@ -1,10 +1,8 @@
-<p align="center">
-  <img width="541" height="183" alt="UnikPlayer" src="https://github.com/user-attachments/assets/1210ccc5-1d73-416f-ab32-c63790be01fd" />
-</p>
-
-<br/>
-
 <div align="center">
+  
+# UnikPlayer
+  
+https://github.com/user-attachments/assets/94860bf0-9891-4df4-84d2-5b1d13636a4e
 
 [![Release](https://img.shields.io/github/v/release/UNIKNOW0/unik-player?style=for-the-badge&label=VERSION)](https://github.com/UNIKNOW0/unik-player/releases/latest)
 [![Windows](https://img.shields.io/badge/PLATFORM-Windows%2010%2F11-0078D6?style=for-the-badge&logo=windows)](https://github.com/UNIKNOW0/unik-player)
@@ -18,7 +16,7 @@
 
 </div>
 
-# UnikPlayer
+
 
 ### UnikPlayer — десктопный медиа-виджет для Windows, который захватывает информацию о текущем треке из **любого** приложения и показывает его на стриме через OBS.
 
