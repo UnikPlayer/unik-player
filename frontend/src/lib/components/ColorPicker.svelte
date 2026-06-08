@@ -135,8 +135,8 @@
 
 <div class="picker">
     <div class="modes">
-        <button class:on={mode === "dynamic"} on:click={() => (mode = "dynamic")}>DYNAMIC</button>
-        <button class:on={mode === "static"} on:click={() => (mode = "static")}>STATIC</button>
+        <button id="color-picker" class:on={mode === "dynamic"} on:click={() => (mode = "dynamic")}>DYNAMIC</button>
+        <button id="color-picker" class:on={mode === "static"} on:click={() => (mode = "static")}>STATIC</button>
     </div>
 
     {#if mode === "static"}
@@ -351,7 +351,7 @@
 
         span {
             font-family: '8bitwonder', monospace;
-            font-size: 0.85rem;
+            font-size: 1rem;
             color: var(--c1);
             min-width: 1.5rem;
             text-align: center;

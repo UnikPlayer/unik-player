@@ -7,6 +7,13 @@
 
   onMount(() => {
     connect();
+    
+    // Initialize frontend error logger
+    import('$lib/errorLogger.js').then(module => {
+      module.initErrorLogger();
+    }).catch(e => {
+      console.error('[Layout] Failed to load error logger:', e);
+    });
   });
 
   $: isPlayer = page.url?.pathname === '/player';

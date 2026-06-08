@@ -1,4 +1,4 @@
-<script>
+﻿<script>
   import { onMount, onDestroy } from 'svelte';
   import { language } from '$lib/stores/stores.js';
 
@@ -14,6 +14,7 @@
   let seenSources = [];
   let sourceInfo = [];
   let loading = true;
+  let showContent = false;
   let pollInterval = null;
 
   let anim = 'hidden';
@@ -51,6 +52,9 @@
   $: texts = t[$language] || t.ru;
 
   $: if (visible) {
+    showContent = false;
+    loading = true;
+    setTimeout(() => { showContent = true; }, 300);
     loadFilter();
     startPolling();
     if (anim === 'hidden') {
@@ -161,19 +165,24 @@
   function makeCloudBlobs(WS,HS,offX=0,offY=0){
     const b=[],cx=WS/2+offX,cy=HS/2+offY;
     const spheres=[
-      {x:0,y:0.05,r:0.40,n:35},
-      {x:-0.05,y:-0.22,r:0.24,n:22},{x:0.18,y:-0.18,r:0.20,n:18},
-      {x:-0.22,y:-0.14,r:0.18,n:16},{x:0.08,y:-0.32,r:0.14,n:12},
-      {x:-0.12,y:-0.35,r:0.11,n:10},{x:0.26,y:-0.28,r:0.10,n:8},
-      {x:-0.38,y:-0.02,r:0.16,n:14},{x:0.38,y:-0.02,r:0.16,n:14},
-      {x:-0.32,y:-0.12,r:0.12,n:10},{x:0.34,y:-0.12,r:0.12,n:10},
-      {x:-0.18,y:0.22,r:0.18,n:12},{x:0.15,y:0.22,r:0.18,n:12},
-      {x:0,y:0.26,r:0.14,n:8},
-      {x:-0.42,y:-0.02,r:0.09,n:8},{x:0.42,y:-0.02,r:0.09,n:8},
-      {x:-0.42,y:0.12,r:0.09,n:8},{x:0.42,y:0.12,r:0.09,n:8},
-      {x:-0.42,y:0.25,r:0.08,n:6},{x:0.42,y:0.25,r:0.08,n:6},
+      // Left stripe
+      {x:-0.50,y:-0.70,r:0.11,n:8},{x:-0.54,y:-0.58,r:0.10,n:8},
+      {x:-0.47,y:-0.46,r:0.11,n:8},{x:-0.52,y:-0.34,r:0.10,n:8},
+      {x:-0.48,y:-0.22,r:0.11,n:8},{x:-0.53,y:-0.10,r:0.10,n:8},
+      {x:-0.46,y:0.02,r:0.11,n:8},{x:-0.51,y:0.14,r:0.10,n:8},
+      {x:-0.49,y:0.26,r:0.11,n:8},{x:-0.54,y:0.38,r:0.10,n:8},
+      {x:-0.47,y:0.50,r:0.11,n:8},{x:-0.52,y:0.62,r:0.10,n:8},
+      {x:-0.48,y:0.70,r:0.11,n:8},
+      // Right stripe
+      {x:0.50,y:-0.70,r:0.11,n:8},{x:0.54,y:-0.58,r:0.10,n:8},
+      {x:0.47,y:-0.46,r:0.11,n:8},{x:0.52,y:-0.34,r:0.10,n:8},
+      {x:0.48,y:-0.22,r:0.11,n:8},{x:0.53,y:-0.10,r:0.10,n:8},
+      {x:0.46,y:0.02,r:0.11,n:8},{x:0.51,y:0.14,r:0.10,n:8},
+      {x:0.49,y:0.26,r:0.11,n:8},{x:0.54,y:0.38,r:0.10,n:8},
+      {x:0.47,y:0.50,r:0.11,n:8},{x:0.52,y:0.62,r:0.10,n:8},
+      {x:0.48,y:0.70,r:0.11,n:8},
     ];
-    const SCALE=1.15;
+    const SCALE=1.0;
     for(const sp of spheres){
       const scx=cx+sp.x*WS*SCALE,scy=cy+sp.y*HS*SCALE;
       const sr=sp.r*Math.min(WS,HS)*SCALE;
@@ -210,29 +219,29 @@
     const _off2=document.createElement('canvas');
 
     const PAD=300;
-    let lastEW=0, lastEH=0;
+    let lastEW=0;
 
     function renderCloud(canvas, t){
       if(!canvas) return;
       const el = contentEl;
       if(!el) return;
-      const ew=el.offsetWidth, eh=el.offsetHeight;
+      const ew=el.offsetWidth;
+      const eh=window.innerHeight;
       if(ew<2||eh<2) return;
 
-      if(ew!==lastEW||eh!==lastEH){
+      if(ew!==lastEW){
         canvas.style.left=-PAD+'px';
-        canvas.style.top=-PAD+'px';
         canvas.style.width=(ew+PAD*2)+'px';
         canvas.style.height=(eh+PAD*2)+'px';
-        lastEW=ew; lastEH=eh;
-        blobs=null; // regenerate blobs for new size
+        lastEW=ew;
+        blobs=null;
       }
+      canvas.style.top=(-el.parentElement.getBoundingClientRect().top)+'px';
 
       const TW=Math.ceil((ew+PAD*2)/S), TH=Math.ceil((eh+PAD*2)/S);
       const WS=Math.ceil(ew/S), HS=Math.ceil(eh/S);
-      const padS=Math.ceil(PAD/S);
 
-      if(!blobs) blobs=makeCloudBlobs(WS,HS, padS, padS);
+      if(!blobs) blobs=makeCloudBlobs(WS,HS,Math.ceil(PAD/S),Math.ceil(PAD/S));
 
       if(_off1.width!==TW||_off1.height!==TH){_off1.width=TW;_off1.height=TH;}
       if(_off2.width!==TW||_off2.height!==TH){_off2.width=TW;_off2.height=TH;}
@@ -281,7 +290,7 @@
     let raf,last=0,tick=0;
     function frame(ts){
       raf=requestAnimationFrame(frame);
-      if(!visible){ lastEW=0; lastEH=0; blobs=null; return; }
+      if(!visible){ lastEW=0; blobs=null; return; }
       if(ts-last<16)return;last=ts;tick++;
       if(blobs) for(const b of blobs) b.update(mx,my,tick);
       renderCloud(cloudCanvas,tick);
@@ -376,13 +385,13 @@
             </div>
           {/if}
 
-          <!-- Footer buttons -->
-          <div class="filter-footer">
-            <button class="btn btn-save" on:click={handleSave}>{texts.save}</button>
-            <button class="btn btn-cancel" on:click={doClose}>{texts.cancel}</button>
-          </div>
         {/if}
 
+      </div>
+
+      <div class="filter-footer">
+        <button class="btn btn-save" on:click={handleSave}>{texts.save}</button>
+        <button class="btn btn-cancel" on:click={doClose}>{texts.cancel}</button>
       </div>
     </div>
   </div>
@@ -401,13 +410,15 @@
   @keyframes backdropOut { from { opacity: 1; } to { opacity: 0; } }
 
   .filter-stage {
-    position: relative; width: 500px; overflow: visible; z-index: 1;
+    position: relative; width: 500px; height: 100vh;
+    display: flex; flex-direction: column;
+    background: white;
+    transition: opacity 0.4s ease;
+    opacity: 0;
   }
-  .filter-stage.hidden { visibility: hidden; transform: translateY(-200vh); }
-  .filter-stage.fly-in { animation: flyIn 0.7s cubic-bezier(.23,1.02,.32,1) both; }
-  .filter-stage.fly-out { animation: flyOut 0.5s cubic-bezier(.6,0,.7,.2) both; }
-  @keyframes flyIn { from { opacity: 0; transform: translateY(-120vh); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes flyOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-120vh); } }
+  .filter-stage.fly-in { opacity: 1; }
+  .filter-stage.fly-out { opacity: 0; }
+  .filter-stage.hidden { opacity: 0; pointer-events: none; }
 
   .cloud-cv {
     position: absolute;
@@ -417,17 +428,18 @@
 
   .filter-content {
     position: relative; z-index: 2;
-    padding: 4rem 3.5rem 5rem;
+    padding: 1rem 0rem 5rem;
     display: flex; flex-direction: column; gap: 1.2rem;
     font-family: '8bitwonder', monospace;
-    max-height: 70vh;
+    flex: 1; min-height: 0;
     overflow-y: auto;
+    max-height: none;
     scrollbar-width: none;
   }
   .filter-content::-webkit-scrollbar { display: none; }
 
   .filter-title {
-    font-size: 20px; letter-spacing: 0.1em;
+    font-size: 28px; letter-spacing: 0.1em;
     color: var(--c-text); text-align: center;
   }
 
@@ -475,14 +487,13 @@
     border: 1px solid color-mix(in srgb, var(--c1) 12%, transparent);
     cursor: pointer;
     transition: all 0.2s;
-    font-family: 'Rubik', sans-serif;
-    font-size: 0.85rem;
+    font-size: 1rem;
     color: color-mix(in srgb, var(--c-text) 60%, transparent);
   }
   .mode-option input { display: none; }
   .mode-option:hover {
-    border-color: color-mix(in srgb, var(--c1) 30%, transparent);
-    background: color-mix(in srgb, var(--c1) 6%, transparent);
+    border-color: var(--c1);
+    color: var(--c-text);
   }
   .mode-option.active {
     border-color: var(--c1);
@@ -543,7 +554,7 @@
   .source-item input { display: none; }
   .source-item .checkbox-box { margin-top: 2px; }
   .source-item:hover {
-    border-color: color-mix(in srgb, var(--c1) 30%, transparent);
+    border-color: color-mix(in srgb, var(--c1) 70%, transparent);
   }
   .source-item.checked {
     border-color: var(--c1);
@@ -573,7 +584,7 @@
 
   .source-name {
     font-family: '8bitwonder', monospace;
-    font-size: 0.65rem;
+    font-size: 0.8rem;
     color: var(--c-text);
   }
 
@@ -596,13 +607,15 @@
   .filter-footer {
     display: flex;
     gap: 1rem;
-    padding-top: 0.5rem;
+    flex-shrink: 0;
+    padding: 0.5rem 0 1rem;
+    position: relative; z-index: 2;
   }
 
   .btn {
     flex: 1;
     font-family: '8bitwonder', monospace;
-    font-size: 0.6rem;
+    font-size: 0.8rem;
     letter-spacing: 0.06em;
     padding: 0.8rem 1rem;
     border: 1px solid;
@@ -618,7 +631,9 @@
     color: var(--c1);
   }
   .btn-save:hover {
-    background: color-mix(in srgb, var(--c1) 20%, transparent);
+    transform: scale(1.03);
+    background: color-mix(in srgb, var(--c1) 25%, transparent);
+    color: var(--c-text);
   }
 
   .btn-cancel {
@@ -627,7 +642,7 @@
     color: color-mix(in srgb, var(--c-text) 50%, transparent);
   }
   .btn-cancel:hover {
-    background: color-mix(in srgb, var(--c1) 5%, transparent);
-    color: var(--c-text);
+    transform: scale(1.03);
+    background: color-mix(in srgb, var(--c1) 8%, transparent);
   }
 </style>

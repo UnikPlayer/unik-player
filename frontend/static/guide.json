@@ -1,0 +1,124 @@
+{
+  "steps": [
+    {
+      "id": 1,
+      "title": "Приветствие",
+      "subtitle": "Привет, это плеер для стрима, ЙОУ. это быстрый гайд как им пользоваться.",
+      "ttsFile": "1.wav",
+      "handType": "hi",
+      "handImage": "hi.png",
+      "targetElement": null
+    },
+    {
+      "id": 2,
+      "title": "Запуск гайда",
+      "subtitle": "Если ты вдруг что то забудешь, эта кнопка снова запустит этот гайд",
+      "ttsFile": "2.wav",
+      "handType": "pick",
+      "handImage": "picker.png",
+      "targetElement": ".guide-btn"
+    },
+    {
+      "id": 3,
+      "title": "Фильтр приложений",
+      "subtitle": "Укажи приложения, где слушаешь музыку! Запусти трек в нужном приложении.",
+      "ttsFile": "3.wav",
+      "handType": "pick",
+      "handImage": "picker.png",
+      "targetElement": "#btn-filter"
+    },
+    {
+      "id": 4,
+      "title": "Копирование плеера",
+      "subtitle": "Нажми COPY под плеером, чтобы добавить его на стрим.",
+      "ttsFile": "4.wav",
+      "handType": "pick",
+      "handImage": "picker.png",
+      "targetElement": ".card .act"
+    },
+    {
+      "id": 5,
+      "title": "OBS",
+      "subtitle": "Теперь добавь браузер в ОБС и вставь туда ссылку, которую скопировал.",
+      "ttsFile": "5.wav",
+      "handType": "flex",
+      "handImage": "flex.gif",
+      "targetElement": null
+    },
+    {
+      "id": 6,
+      "title": "Трей",
+      "subtitle": "Программа будет висеть в трее, можешь закрыть сайт.",
+      "ttsFile": "6.wav",
+      "handType": "flex",
+      "handImage": "flex.gif"
+    },
+    {
+      "id": 7,
+      "title": "Кастомизация",
+      "subtitle": "Хочешь кастомизировать? Нажми edit!",
+      "ttsFile": "7.wav",
+      "handType": "pick",
+      "handImage": "picker.png",
+      "targetElement": ".card .act:nth-child(2)",
+      "closeEditor": true
+    },
+    {
+      "id": 8,
+      "title": "Стиль",
+      "subtitle": "Тут настраивается стиль оформления.",
+      "ttsFile": "8.wav",
+      "handType": "flex",
+      "handImage": "flex.gif",
+      "targetElement": ".editor-overlay",
+      "autoClick": ".card .act:nth-child(2)",
+      "transparentBackdrop": true
+    },
+    {
+      "id": 9,
+      "title": "Шрифты",
+      "subtitle": "Здесь можно выбрать любой шрифт из твоей системы.",
+      "ttsFile": "9.wav",
+      "handType": "pick",
+      "handImage": "picker.png",
+      "targetElement": ".font-select"
+    },
+    {
+      "id": 10,
+      "title": "Цвета",
+      "subtitle": "Смени цветовое оформление плеера.",
+      "ttsFile": "10.wav",
+      "handType": "pick",
+      "handImage": "picker.png",
+      "targetElement": "#color-picker"
+    },
+    {
+      "id": 11,
+      "title": "CSS",
+      "subtitle": "А если знаешь CSS, можешь переписать дизайн полностью.",
+      "ttsFile": "11.wav",
+      "handType": "pick",
+      "handImage": "picker.png",
+      "targetElement": ".css-editor"
+    },
+    {
+      "id": 12,
+      "title": "Свой плеер",
+      "subtitle": "Не нравятся мои плееры? Сделай свой!",
+      "ttsFile": "12.wav",
+      "handType": "pick",
+      "handImage": "picker.png",
+      "targetElement": ".btn-group .blob-btn",
+      "closeEditor": true
+    },
+    {
+      "id": 13,
+      "title": "Конец",
+      "subtitle": "Это всё! Удачи со стримами!",
+      "ttsFile": "13.wav",
+      "handType": "hi",
+      "handImage": "hi.png",
+      "targetElement": null
+    }
+  ]
+}

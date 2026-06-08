@@ -35,7 +35,7 @@
         saveCSSToBackend as sharedSaveCSS,
         deleteCSSFromBackend,
     } from "$lib/utils/playerCSS.js";
-    import { startGuide } from '$lib/stores/guide';
+    import { startGuide } from '$lib/stores/guideState';
     import GuideOverlay from './GuideOverlay.svelte';
 
     // Backend API base URL - for dev mode
@@ -295,15 +295,7 @@
             setTimeout(() => (pigBouncing = false), 300);
         });
     }
-
-    function speakText(text) {
-        if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            speechSynthesis.speak(utterance);
-        } else {
-            console.warn('Text-to-speech not supported in this browser.');
-        }
-    }
+    
     function setVolume(event) {
         if (pigAudio) {
             pigAudio.volume = event.target.value / 100;
@@ -1154,19 +1146,7 @@ window.addEventListener('message', function(e) {
                 >
                     Reset
                 </button>
-                <button class="footer-btn" on:click={() => speakText('Hello, world!')}>
-                    TTS
-                </button>
-                <input type="range" min="0" max="100" on:input={setVolume}>
-                <button class="footer-btn" on:click={() => speakText('Hello, world!')}>
-                    TTS
-                </button>
-                <button class="footer-btn" on:click={() => {
-                    speakText('Starting the guide.');
-                    // TODO: Implement guide start
-                }}>
-                    Guide
-                </button>
+                
             </footer>
         </div>
         </div>

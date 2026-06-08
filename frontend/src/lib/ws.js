@@ -20,6 +20,11 @@ let ws;
 let reconnectTimeout = 1000;
 let currentBlobUrl = null;
 let isConnected = false;
+let healthCheckInterval = null;
+let lastMessageTime = Date.now();
+
+const HEALTH_CHECK_MS = 30000; // Check every 30s
+const MAX_SILENCE_MS = 120000; // Force reconnect if no data for 2 mins
 
 // Track last values to prevent duplicate updates
 let lastTitle = null;
@@ -74,7 +79,7 @@ export async function connect() {
   }
 
   // Prevent multiple connections
-  if (isConnected || (ws && ws.readyState === WebSocket.CONNECTING)) {
+  if (isConnected || (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING))) {
     console.log("[WS] Already connected or connecting");
     return;
   }
@@ -90,7 +95,9 @@ export async function connect() {
     }
   }
 
-  const url = "ws://127.0.0.1:62727";
+  // Use relative path - Vite proxies /ws in dev, backend handles in prod
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url = `${protocol}//${window.location.host}/ws`;
   console.log("[WS] Connecting to", url);
 
   try {
@@ -105,9 +112,32 @@ export async function connect() {
     console.log("[WS] Connected successfully!");
     isConnected = true;
     reconnectTimeout = 1000;
+    lastMessageTime = Date.now();
+
+    // Start health check
+    if (healthCheckInterval) clearInterval(healthCheckInterval);
+    healthCheckInterval = setInterval(() => {
+      if (Date.now() - lastMessageTime > MAX_SILENCE_MS) {
+        console.warn("[WS] No data for 2 minutes, forcing reconnect...");
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        } else {
+          isConnected = false;
+          connect();
+        }
+      }
+    }, HEALTH_CHECK_MS);
   };
 
   ws.onmessage = (e) => {
+    lastMessageTime = Date.now();
+    
+    // Handle ping/pong keep-alive
+    if (typeof e.data === "string" && e.data.trim().toLowerCase() === "ping") {
+      ws.send("pong");
+      return;
+    }
+    
     try {
       mediaData = JSON.parse(e.data);
       // Log timeline data (skip full media/thumbnail to reduce noise)
@@ -320,6 +350,8 @@ export async function connect() {
   ws.onclose = () => {
     console.log("[WS] Closed, reconnect in", reconnectTimeout, "ms");
     isConnected = false;
+    if (healthCheckInterval) clearInterval(healthCheckInterval);
+    healthCheckInterval = null;
     setTimeout(connect, reconnectTimeout);
     reconnectTimeout = Math.min(reconnectTimeout * 2, 30000);
   };

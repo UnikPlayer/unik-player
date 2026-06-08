@@ -10,6 +10,8 @@
   import { title, artist, thumbnail, ShowTrack, language } from '$lib/stores/stores.js';
   import { transformCSS, injectCSS, loadCSSFromBackend } from '$lib/utils/playerCSS.js';
   import AccountPanel from '$lib/components/AccountPanel.svelte';
+  import GuideOverlay from '$lib/components/GuideOverlay.svelte';
+  import { isFirstLaunch, startGuide } from '$lib/stores/guideState.js';
 
   let players = [];
   let showUploader = false;
@@ -375,6 +377,13 @@
 
     loadPlayers();
 
+    // Автозапуск гайда при первом посещении
+    if ($isFirstLaunch) {
+      setTimeout(() => {
+        startGuide(); // Пустой массив, пока пользователь не даст шаги
+      }, 1000);
+    }
+
     const handleCSSRefresh = () => loadAllPlayerCSS();
     const handlePlayerDeleted = () => loadPlayers();
     window.addEventListener('unik-css-refresh', handleCSSRefresh);
@@ -568,7 +577,12 @@
 
 <div class="root">
   <aside class="sidebar" class:collapsed={!sidebarOpen}>
-    <div class="logo">[<span class="logo-accent">UNIK</span>PLAYER]</div>
+    <div class="logo-container">
+      <div class="logo">[<span class="logo-accent">UNIK</span>PLAYER]</div>
+      <button class="guide-btn" on:click={() => startGuide()} aria-label="Как пользоваться">
+        КАК ПОЛЬЗОВАТЬСЯ
+      </button>
+    </div>
 
     <div class="two-col">
       <div class="col-left">
@@ -587,7 +601,7 @@
             width={LPW} height={LPH_FULL}
             style="width:{LW}px;height:{LH_FULL}px;top:{-LIST_VPAD*LPS}px;"></canvas>
           {#each SORT_ITEMS as item, i}
-            <button class="sort-item" on:click={()=>selectSort(i)} role="listitem">
+            <button class="sort-item" on:click={()=>selectSort(i)}>
               <span class="sort-label" style="color:{sortIdx===i?'var(--c2)':'var(--c1)'}">{item}</span>
             </button>
           {/each}
@@ -598,7 +612,7 @@
     <div class="sidebar-spacer"></div>
 
     <div class="btn-group">
-      <div class="blob-btn" style="width:{B1W}px;height:{B1H}px;"
+      <div id="custom-btn" class="blob-btn" style="width:{B1W}px;height:{B1H}px;"
         on:mouseenter={()=>h1=true} on:mouseleave={()=>h1=false}
         on:click={() => showUploader = true} role="button" tabindex="0"
         on:keydown={e=>e.key==='Enter'&& (showUploader = true)}>
@@ -607,7 +621,7 @@
         <span class="btn-label" style="color:{h1?'var(--c1)':'var(--c2)'}">{texts.addCustom}</span>
       </div>
 
-      <div class="blob-btn" style="width:{B2W}px;height:{B2H}px;"
+      <div id="btn-filter" class="blob-btn" style="width:{B2W}px;height:{B2H}px;"
         on:mouseenter={()=>h2=true} on:mouseleave={()=>h2=false}
         on:click={() => showFilter = true} role="button" tabindex="0"
         on:keydown={e=>e.key==='Enter'&& (showFilter = true)}>
@@ -632,7 +646,7 @@
     <div class="players-grid">
       {#if filteredPlayers.length === 0 && players.length > 0}
         <div class="empty">
-          <div class="empty-icon">&lt;/&gt;</div>
+        <div class="empty-icon"></div>
           <p>{texts.empty}</p>
         </div>
       {:else}
@@ -653,7 +667,10 @@
       <span class="footer-text">v0.7</span>
     </footer>
   </main>
+
 </div>
+
+<GuideOverlay />
 
 <CustomPlayerUploader
   visible={showUploader}
@@ -689,8 +706,32 @@
   .sidebar.collapsed .lang-btn,
   .sidebar.collapsed .bottom-link { opacity: 0; pointer-events: none; transition: opacity 0.2s; }
 
-  .logo { font-size: 2rem; letter-spacing: 0.05em; margin-bottom: 2rem; text-align: center; }
+  .logo-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+  .logo { font-size: 2rem; letter-spacing: 0.05em; text-align: left; }
   .logo-accent { color: var(--ca); }
+  
+  .guide-btn {
+    background: none;
+    border: 2px solid color-mix(in srgb,var(--c1) 30%,transparent);
+    color: color-mix(in srgb,var(--c1) 60%,transparent);
+    font-family: '8bitwonder', monospace;
+    font-size: 0.6rem;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .guide-btn:hover {
+    color: var(--c1);
+    border-color: var(--c1);
+    background: rgba(255,255,255,0.05);
+  }
 
   .two-col { display: flex; gap: 12px; align-items: flex-start; }
   .col-left { width: 220px; flex-shrink: 0; }
@@ -745,7 +786,7 @@
   .btn-label {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
-    font-family: '8bitwonder', monospace; font-size: 0.75rem;
+    font-family: '8bitwonder', monospace; font-size: 1rem;
     letter-spacing: 0.06em; pointer-events: none;
     white-space: nowrap; transition: color 0.2s;
   }

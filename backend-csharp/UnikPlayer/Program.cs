@@ -1,7 +1,9 @@
-﻿using System.Drawing.Drawing2D;
+using System.Diagnostics;
+using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Net;
 using System.Net.Sockets;
+using System.Net.Http;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -24,10 +26,10 @@ class Program
     private static string? _lastSentJson;
     private static DateTime _lastSentTime = DateTime.MinValue;
     private static double _lastSentPosition = 0;  // Last sent timeline position
-    private static string? _activeSessionId;  // ID последней активной сессии
-    private static double _knownPosition = 0;      // Позиция из SMTC при последнем обновлении
-    private static DateTime _knownPositionTime = DateTime.MinValue;  // Когда получили эту позицию
-    private static double _knownDuration = 0;      // Длительность трека
+    private static string? _activeSessionId;  // ID ��������� �������� ������
+    private static double _knownPosition = 0;      // ������� �� SMTC ��� ��������� ����������
+    private static DateTime _knownPositionTime = DateTime.MinValue;  // ����� �������� ��� �������
+    private static double _knownDuration = 0;      // ������������ �����
     private static readonly int DEBOUNCE_MS = 300;
     private static readonly double POSITION_THRESHOLD = 2.0;  // Send update if position differs by more than 2 seconds
     private static readonly int HTTP_PORT = 27272;
@@ -51,6 +53,20 @@ class Program
     private static string SITE_AUTH_FILE = "";
     private static string? _siteAuthToken;
     private static string? _siteAuthNickname;
+
+    // Frontend logs storage
+    private static readonly List<string> _frontendLogs = new();
+    private static readonly object _frontendLogsLock = new();
+
+    // Auto-update
+    private static readonly HttpClient _httpUpdate = new();
+    private static bool _updateAvailable = false;
+    private static string? _latestInstallerUrl;
+    private static string? _latestVersion;
+    private static string? _currentVersion;
+    private static ContextMenuStrip? _trayMenu;
+    private static ToolStripMenuItem? _updateMenuItem;
+    private static readonly string GITHUB_API_URL = "https://api.github.com/repos/UNIKNOW0/unik-player/releases/latest";
 
     class MediaFilterConfig
     {
@@ -151,16 +167,35 @@ class Program
                     return name;
             }
 
+            // Handle GUID (browser): "{308046B0AF4A39CB}" -> "Browser"
+            if (appId.StartsWith("{") && appId.EndsWith("}"))
+            {
+                return "Browser";
+            }
+
             // Handle AUMID: "Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic" -> "ZuneMusic"
             if (appId.Contains('!'))
             {
                 var afterBang = appId.Split('!').Last();
-                var cleanName = afterBang.Replace("Microsoft.", "");
+                var cleanName = afterBang.Replace("Microsoft.", "").Replace("App", "");
                 if (!string.IsNullOrEmpty(cleanName))
                     return cleanName;
             }
 
-            // Handle package name: "Something_hash!App" or partial
+            // Handle package name: "com.github.th-ch.youtube-music" -> "YouTube Music"
+            if (appId.Contains('.'))
+            {
+                var parts = appId.Split('.');
+                var lastPart = parts.Last();
+                // Convert camelCase to readable: "youtube-music" -> "YouTube Music"
+                var readable = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(
+                    lastPart.Replace("-", " ")
+                );
+                if (!string.IsNullOrEmpty(readable))
+                    return readable;
+            }
+
+            // Fallback: just return the last part after underscore or the full id
             if (appId.Contains('_'))
             {
                 var beforeUnderscore = appId.Split('_')[0];
@@ -384,6 +419,8 @@ class Program
     [STAThread]
     static void Main(string[] args)
     {
+        Logger.SessionStart();
+        
         // Single instance check (skip in dev mode)
         bool createdNew;
         using var mutex = new Mutex(true, "UnikPlayer_SingleInstance", out createdNew);
@@ -398,30 +435,45 @@ class Program
         }
         if (NO_FRONTEND)
         {
-            Console.WriteLine("[Config] NO_FRONTEND - бэкенд не будет отдавать фронт (только API)");
+            Console.WriteLine("[Config] NO_FRONTEND - ������ �� ����� �������� ����� (������ API)");
         }
 
         if (!createdNew && !DEV_MODE)
         {
-            Console.WriteLine("UnikPlayer уже запущен!");
+            Console.WriteLine("UnikPlayer ��� �������!");
+            Logger.Warning("Another instance already running, exiting");
+            Logger.SessionEnd();
             return;
         }
 
-        Console.WriteLine("UnikPlayer запускается...");
+        Console.WriteLine("UnikPlayer �����������...");
+        Logger.SetBackendState("Starting");
 
         // Start services
         Task.Run(() => StartHttpServer());
         Task.Run(() => StartWebSocketServer());
         StartMediaManager();
 
-        Console.WriteLine($"HTTP сервер: http://localhost:{HTTP_PORT}/");
-        Console.WriteLine($"WebSocket сервер: ws://localhost:{WS_PORT}/");
-        Console.WriteLine("UnikPlayer работает.");
+        Console.WriteLine($"HTTP ������: http://localhost:{HTTP_PORT}/");
+        Console.WriteLine($"WebSocket ������: ws://localhost:{WS_PORT}/");
+        Console.WriteLine("UnikPlayer ��������.");
 
         // Setup tray icon
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         SetupTrayIcon();
+
+        // Check for updates once at startup, then every 24 hours
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(60000);
+            await CheckForUpdatesAsync();
+            while (true)
+            {
+                await Task.Delay(24 * 60 * 60 * 1000);
+                await CheckForUpdatesAsync();
+            }
+        });
 
         // Open browser if not autostart and frontend is being served
         if (!args.Contains("--autostart") && !NO_FRONTEND)
@@ -440,6 +492,8 @@ class Program
         _trayIcon?.Dispose();
         _httpListener?.Stop();
         _wsListener?.Stop();
+        Logger.SetBackendState("Stopped");
+        Logger.SessionEnd();
     }
 
     static Bitmap? LoadSvgAsBitmap(string filename, int size = 16, bool makeWhite = false)
@@ -460,7 +514,7 @@ class Program
                 {
                     var svgDoc = SvgDocument.Open(path);
 
-                    // Делаем иконку белой
+                    // ������ ������ �����
                     if (makeWhite)
                     {
                         SetSvgColor(svgDoc, new SvgColourServer(Color.White));
@@ -469,12 +523,12 @@ class Program
                     svgDoc.Width = size;
                     svgDoc.Height = size;
                     var bitmap = svgDoc.Draw(size, size);
-                    Console.WriteLine($"[Tray] SVG загружен: {path}");
+                    Console.WriteLine($"[Tray] SVG ��������: {path}");
                     return bitmap;
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[Tray] Ошибка загрузки SVG {path}: {ex.Message}");
+                    Console.WriteLine($"[Tray] ������ �������� SVG {path}: {ex.Message}");
                 }
             }
         }
@@ -507,7 +561,7 @@ class Program
             Visible = true
         };
 
-        // Ищем иконку в разных местах
+        // ���� ������ � ������ ������
         var possibleIconPaths = new[]
         {
             Path.Combine(AppContext.BaseDirectory, "icon.ico"),
@@ -525,7 +579,7 @@ class Program
                 try
                 {
                     appIcon = new Icon(path);
-                    Console.WriteLine($"[Tray] Иконка загружена: {path}");
+                    Console.WriteLine($"[Tray] ������ ���������: {path}");
                     break;
                 }
                 catch { }
@@ -534,18 +588,18 @@ class Program
 
         _trayIcon.Icon = appIcon ?? SystemIcons.Application;
 
-        // Загружаем SVG иконки для меню (белые для темной темы)
+        // ��������� SVG ������ ��� ���� (����� ��� ������ ����)
         var homeIcon = LoadSvgAsBitmap("home.svg", 16, makeWhite: true);
         var exitIcon = LoadSvgAsBitmap("exit.svg", 16, makeWhite: true);
 
         var menu = new ContextMenuStrip();
 
-        // Темная тема для меню
+        // ������ ���� ��� ����
         menu.Renderer = new DarkMenuRenderer();
         menu.BackColor = Color.FromArgb(32, 32, 32);
         menu.ForeColor = Color.White;
 
-        // Кнопка "Open site" с иконкой
+        // ������ "Open site" � �������
         var openItem = new ToolStripMenuItem("Open site", homeIcon, (s, e) =>
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -558,6 +612,17 @@ class Program
         menu.Items.Add(openItem);
 
         menu.Items.Add(new ToolStripSeparator());
+
+        // Кнопка "Обновить приложение" (скрыта по умолчанию)
+        _updateMenuItem = new ToolStripMenuItem("Обновить приложение", null, async (s, e) =>
+        {
+            Console.WriteLine("[Update] User initiated update");
+            await StartUpdate(relaunch: true);
+        });
+        _updateMenuItem.ForeColor = Color.White;
+        _updateMenuItem.Visible = false;
+        _updateMenuItem.Font = new Font(_updateMenuItem.Font, FontStyle.Bold);
+        menu.Items.Add(_updateMenuItem);
 
         // Кнопка "Exit" с иконкой
         var exitItem = new ToolStripMenuItem("Exit", exitIcon, (s, e) =>
@@ -585,7 +650,7 @@ class Program
 
         _mediaManager.OnAnyMediaPropertyChanged += async (session, args) =>
         {
-            // Обновляем только если это активная сессия или нет активной
+            // ��������� ������ ���� ��� �������� ������ ��� ��� ��������
             if (_activeSessionId == null || _activeSessionId == session.Id)
             {
                 await SendMediaUpdate(session);
@@ -607,19 +672,19 @@ class Program
                     return;
                 }
 
-                // Сессия начала играть - делаем её активной
+                // ������ ������ ������ - ������ � ��������
                 _activeSessionId = session.Id;
-                Console.WriteLine($"[SMTC] Активная сессия: {session.Id}");
+                Console.WriteLine($"[SMTC] �������� ������: {session.Id}");
 
-                // Stop old timer first — SendMediaUpdate will set correct position data
+                // Stop old timer first � SendMediaUpdate will set correct position data
                 StopPositionTimer();
                 await SendMediaUpdate(session);
-                // Now _knownPosition/_knownDuration are correct — start timer
+                // Now _knownPosition/_knownDuration are correct � start timer
                 StartPositionTimer();
             }
             else if (_activeSessionId == session.Id)
             {
-                // Активная сессия не Playing - останавливаем таймер и ищем другую
+                // �������� ������ �� Playing - ������������� ������ � ���� ������
                 StopPositionTimer();
                 SendPlaybackUpdate(session);
                 await FindAndSendPlayingSession();
@@ -637,7 +702,7 @@ class Program
 
         _mediaManager.OnAnySessionOpened += async (session) =>
         {
-            // Новая сессия - проверяем играет ли она
+            // ����� ������ - ��������� ������ �� ���
             var playback = session.ControlSession.GetPlaybackInfo();
             if (playback.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
             {
@@ -659,23 +724,23 @@ class Program
         };
 
         _mediaManager.Start();
-        Console.WriteLine("SMTC слушатель запущен");
+        Console.WriteLine("SMTC ��������� �������");
     }
 
     static async Task FindAndSendPlayingSession()
     {
         if (_mediaManager == null) return;
 
-        // Проверяем, разрешён ли текущий активный источник
+        // ���������, �������� �� ������� �������� ��������
         if (_activeSessionId != null && !ShouldAllowSource(_activeSessionId))
         {
-            Console.WriteLine($"[SMTC] Активный источник {_activeSessionId} теперь заблокирован");
+            Console.WriteLine($"[SMTC] �������� �������� {_activeSessionId} ������ ������������");
             _activeSessionId = null;
             _lastFingerprint = null;
             _lastSentJson = null;
         }
 
-        // Ищем любую сессию со статусом Playing (с учётом фильтра)
+        // ���� ����� ������ �� �������� Playing (� ������ �������)
         foreach (var session in _mediaManager.CurrentMediaSessions.Values)
         {
             try
@@ -699,10 +764,10 @@ class Program
             catch { }
         }
 
-        // Нет Playing сессий - ждём немного (может быть смена трека)
+        // ��� Playing ������ - ��� ������� (����� ���� ����� �����)
         await Task.Delay(300);
 
-        // Проверяем ещё раз - может появилась Playing сессия
+        // ��������� ��� ��� - ����� ��������� Playing ������
         foreach (var session in _mediaManager.CurrentMediaSessions.Values)
         {
             try
@@ -713,7 +778,7 @@ class Program
                     var sourceId = session.Id ?? "";
                     if (ShouldAllowSource(sourceId))
                     {
-                        // Нашли Playing - не скрываем, SendMediaUpdate вызовется из события
+                        // ����� Playing - �� ��������, SendMediaUpdate ��������� �� �������
                         return;
                     }
                 }
@@ -721,18 +786,18 @@ class Program
             catch { }
         }
 
-        // После задержки всё ещё нет Playing - скрываем
+        // ����� �������� �� ��� ��� Playing - ��������
         _activeSessionId = null;
         _lastFingerprint = null;
         _lastSentJson = null;
         BroadcastMessage(JsonSerializer.Serialize(new { media = (object?)null }));
-        Console.WriteLine("[SMTC] Нет Playing сессий - скрываем плеер");
+        Console.WriteLine("[SMTC] ��� Playing ������ - �������� �����");
     }
 
     static async Task SendMediaUpdate(MediaManager.MediaSession session, int retryCount = 0)
     {
         const int RETRY_DELAY_MS = 200;
-        const int MAX_RETRIES = 2;  // 2 * 200ms = 400ms max для картинки
+        const int MAX_RETRIES = 2;  // 2 * 200ms = 400ms max ��� ��������
         try
         {
             // Track seen source and check filter
@@ -741,7 +806,7 @@ class Program
 
             if (!ShouldAllowSource(sourceId))
             {
-                // Source is filtered out — clear active and let caller handle
+                // Source is filtered out � clear active and let caller handle
                 if (_activeSessionId == session.Id)
                 {
                     _activeSessionId = null;
@@ -751,27 +816,27 @@ class Program
 
             var playback = session.ControlSession.GetPlaybackInfo();
 
-            // Если статус не Playing - выходим (FindAndSendPlayingSession найдёт Playing сессию)
+            // ���� ������ �� Playing - ������� (FindAndSendPlayingSession ����� Playing ������)
             if (playback.PlaybackStatus != GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
             {
-                Console.WriteLine($"[SMTC] Status != Playing ({playback.PlaybackStatus}), пропускаем");
+                Console.WriteLine($"[SMTC] Status != Playing ({playback.PlaybackStatus}), ����������");
                 return;
             }
 
             var mediaProps = await session.ControlSession.TryGetMediaPropertiesAsync();
 
-            // Проверяем что есть все данные
+            // ��������� ��� ���� ��� ������
             var title = mediaProps.Title ?? "";
             var artist = mediaProps.Artist ?? "";
 
-            // Если совсем нет данных - пропускаем
+            // ���� ������ ��� ������ - ����������
             if (string.IsNullOrEmpty(title) && string.IsNullOrEmpty(artist))
             {
-                Console.WriteLine($"[SMTC] Нет title/artist, пропускаем");
+                Console.WriteLine($"[SMTC] ��� title/artist, ����������");
                 return;
             }
 
-            // Заполняем пустые поля
+            // ��������� ������ ����
             if (string.IsNullOrEmpty(title)) title = "Unknown";
             if (string.IsNullOrEmpty(artist)) artist = "Unknown";
 
@@ -790,19 +855,19 @@ class Program
                 catch { }
             }
 
-            // Если нет thumbnail - retry до 1.5 секунд
+            // ���� ��� thumbnail - retry �� 1.5 ������
             if (thumbnailData == null && retryCount < MAX_RETRIES)
             {
-                Console.WriteLine($"[SMTC] Нет thumbnail для {artist} - {title}, retry {retryCount + 1}/{MAX_RETRIES}...");
+                Console.WriteLine($"[SMTC] ��� thumbnail ��� {artist} - {title}, retry {retryCount + 1}/{MAX_RETRIES}...");
                 await Task.Delay(RETRY_DELAY_MS);
                 await SendMediaUpdate(session, retryCount + 1);
                 return;
             }
 
-            // После retry показываем с заглушкой
+            // ����� retry ���������� � ���������
             if (thumbnailData == null)
             {
-                Console.WriteLine($"[SMTC] Нет thumbnail после {MAX_RETRIES} попыток, показываем с заглушкой");
+                Console.WriteLine($"[SMTC] ��� thumbnail ����� {MAX_RETRIES} �������, ���������� � ���������");
             }
 
             var fingerprint = $"{session.Id}||{title}||{artist}";
@@ -814,7 +879,7 @@ class Program
             var currentPosition = timelineProps.Position.TotalSeconds;
             var duration = timelineProps.EndTime.TotalSeconds;
 
-            // Сохраняем для таймера
+            // ��������� ��� �������
             _knownPosition = currentPosition;
             _knownPositionTime = DateTime.Now;
             _knownDuration = duration;
@@ -913,7 +978,7 @@ class Program
             var timelineProps = session.ControlSession.GetTimelineProperties();
             var currentPosition = timelineProps.Position.TotalSeconds;
 
-            // Обновляем базу (пауза — фиксируем текущую позицию)
+            // ��������� ���� (����� � ��������� ������� �������)
             _knownPosition = currentPosition;
             _knownPositionTime = DateTime.Now;
 
@@ -950,7 +1015,7 @@ class Program
             var currentPosition = timelineProps.Position.TotalSeconds;
             var newDuration = timelineProps.EndTime.TotalSeconds;
 
-            // Всегда обновляем duration (меняется при смене трека)
+            // ������ ��������� duration (�������� ��� ����� �����)
             var durationChanged = Math.Abs(newDuration - _knownDuration) > 0.5;
             _knownDuration = newDuration;
 
@@ -961,7 +1026,7 @@ class Program
                 return;
             }
 
-            // Обновляем базу для таймера (seek или смена длительности)
+            // ��������� ���� ��� ������� (seek ��� ����� ������������)
             _knownPosition = currentPosition;
             _knownPositionTime = DateTime.Now;
 
@@ -989,7 +1054,7 @@ class Program
         }
     }
 
-    // Запускает таймер отправки позиции каждую секунду
+    // ��������� ������ �������� ������� ������ �������
     static void StartPositionTimer()
     {
         StopPositionTimer();
@@ -1000,7 +1065,7 @@ class Program
                 if (_activeSessionId == null || _mediaManager == null) return;
                 if (_knownDuration <= 0) return;
 
-                // Считаем позицию сами: basePosition + elapsed
+                // ������� ������� ����: basePosition + elapsed
                 var elapsed = (DateTime.Now - _knownPositionTime).TotalSeconds;
                 var currentPosition = Math.Min(_knownPosition + elapsed, _knownDuration);
 
@@ -1025,7 +1090,7 @@ class Program
         }, null, 1000, 1000);
     }
 
-    // Останавливает таймер позиции
+    // ������������� ������ �������
     static void StopPositionTimer()
     {
         _positionTimer?.Dispose();
@@ -1051,11 +1116,11 @@ class Program
                 if (client.State == WebSocketState.Open)
                 {
                     using var cts = new CancellationTokenSource(2000);
-                    // Fire-and-forget async send — don't block the thread pool
+                    // Fire-and-forget async send � don't block the thread pool
                     var task = client.SendAsync(segment, WebSocketMessageType.Text, true, cts.Token);
                     if (!task.Wait(2000))
                     {
-                        // Send timed out — treat as dead
+                        // Send timed out � treat as dead
                         deadClients.Add(client);
                     }
                 }
@@ -1084,7 +1149,7 @@ class Program
         }
     }
 
-    // TCP proxy: слушает на 0.0.0.0 (все интерфейсы, без админа) и форвардит на localhost HttpListener
+    // TCP proxy: ������� �� 0.0.0.0 (��� ����������, ��� ������) � ��������� �� localhost HttpListener
     static async Task StartTcpProxy(int publicPort, int internalPort, string label)
     {
         var listener = new TcpListener(IPAddress.Any, publicPort);
@@ -1165,7 +1230,7 @@ class Program
                     var t1 = cs.CopyToAsync(us, cts.Token);
                     var t2 = us.CopyToAsync(cs, cts.Token);
                     await Task.WhenAny(t1, t2);
-                    // One direction closed — cancel the other to prevent hanging tasks
+                    // One direction closed � cancel the other to prevent hanging tasks
                     cts.Cancel();
                 }
             }
@@ -1238,9 +1303,9 @@ class Program
         _wsListener.Prefixes.Add($"http://localhost:{internalPort}/");
         _wsListener.Start();
 
-        // TCP proxy на публичном порте
+        // TCP proxy �� ��������� �����
         _ = Task.Run(() => StartTcpProxy(WS_PORT, internalPort, "WS"));
-        Console.WriteLine($"[WS] WebSocket сервер на 0.0.0.0:{WS_PORT}");
+        Console.WriteLine($"[WS] WebSocket ������ �� 0.0.0.0:{WS_PORT}");
 
         while (true)
         {
@@ -1271,7 +1336,7 @@ class Program
 
         if (_mediaManager == null) return;
 
-        // Ищем играющую сессию (с учётом фильтра)
+        // ���� �������� ������ (� ������ �������)
         foreach (var session in _mediaManager.CurrentMediaSessions.Values)
         {
             try
@@ -1307,22 +1372,22 @@ class Program
                     catch { }
                 }
 
-                // Если нет thumbnail - retry до MAX_RETRIES раз
+                // ���� ��� thumbnail - retry �� MAX_RETRIES ���
                 if (thumbnailData == null && retryCount < MAX_RETRIES)
                 {
                     if (ws.State == WebSocketState.Open)
                     {
-                        Console.WriteLine($"[WS] Нет thumbnail для нового клиента, retry {retryCount + 1}/{MAX_RETRIES}...");
+                        Console.WriteLine($"[WS] ��� thumbnail ��� ������ �������, retry {retryCount + 1}/{MAX_RETRIES}...");
                         await Task.Delay(RETRY_DELAY_MS);
                         await SendCurrentStateToClient(ws, retryCount + 1);
                     }
                     return;
                 }
 
-                // После MAX_RETRIES показываем без картинки
+                // ����� MAX_RETRIES ���������� ��� ��������
                 if (thumbnailData == null)
                 {
-                    Console.WriteLine($"[WS] Нет thumbnail после {MAX_RETRIES} попыток, отправляем без картинки");
+                    Console.WriteLine($"[WS] ��� thumbnail ����� {MAX_RETRIES} �������, ���������� ��� ��������");
                 }
 
                 // Get timeline info
@@ -1354,26 +1419,26 @@ class Program
                 if (ws.State == WebSocketState.Open)
                 {
                     await ws.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
-                    Console.WriteLine($"[WS] Отправлено текущее состояние: {artist} - {title} (pos: {timelineProps.Position.TotalSeconds:F0}s)");
+                    Console.WriteLine($"[WS] ���������� ������� ���������: {artist} - {title} (pos: {timelineProps.Position.TotalSeconds:F0}s)");
                 }
                 return;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[WS] Ошибка получения состояния: {ex.Message}");
+                Console.WriteLine($"[WS] ������ ��������� ���������: {ex.Message}");
             }
         }
 
-        // Нет играющих сессий - retry до MAX_RETRIES раз
+        // ��� �������� ������ - retry �� MAX_RETRIES ���
         if (ws.State == WebSocketState.Open && retryCount < MAX_RETRIES)
         {
-            Console.WriteLine($"[WS] Нет активных сессий для нового клиента, retry {retryCount + 1}/{MAX_RETRIES}...");
+            Console.WriteLine($"[WS] ��� �������� ������ ��� ������ �������, retry {retryCount + 1}/{MAX_RETRIES}...");
             await Task.Delay(RETRY_DELAY_MS);
             await SendCurrentStateToClient(ws, retryCount + 1);
         }
         else if (retryCount >= MAX_RETRIES)
         {
-            Console.WriteLine($"[WS] Нет активных сессий после {MAX_RETRIES} попыток");
+            Console.WriteLine($"[WS] ��� �������� ������ ����� {MAX_RETRIES} �������");
         }
     }
 
@@ -1381,40 +1446,80 @@ class Program
     {
         var wsContext = await context.AcceptWebSocketAsync(null);
         var ws = wsContext.WebSocket;
+        var lastPong = DateTime.Now;
 
         lock (_lock)
         {
             _clients.Add(ws);
         }
-        Console.WriteLine("[WS] Клиент подключился");
+        Console.WriteLine("[WS] ������ �����������");
 
-        // Отправляем текущее состояние новому клиенту
+        // ���������� ������� ��������� ������ �������
         await SendCurrentStateToClient(ws);
 
         var buffer = new byte[1024];
+        var receiveBuffer = new byte[1024];
+        
+        // Start ping timer (every 30 seconds)
+        var pingTimer = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                if (ws.State == WebSocketState.Open)
+                {
+                    // Check if client responded to last ping
+                    if ((DateTime.Now - lastPong).TotalSeconds > 90)
+                    {
+                        Console.WriteLine("[WS] Client timed out (no pong), removing...");
+                        lock (_lock) { _clients.Remove(ws); }
+                        try { ws.Abort(); } catch { }
+                        try { ws.Dispose(); } catch { }
+                        return;
+                    }
+                    
+                    // Send ping
+                    var pingData = Encoding.UTF8.GetBytes("ping");
+                    await ws.SendAsync(new ArraySegment<byte>(pingData), WebSocketMessageType.Text, true, CancellationToken.None);
+                }
+            }
+            catch { }
+        }, null, 30000, 30000);
+
         try
         {
             while (ws.State == WebSocketState.Open)
             {
-                // Timeout on receive — detect dead connections that didn't send close frame
+                // Timeout on receive � detect dead connections that didn't send close frame
                 using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
-                var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), cts.Token);
+                var result = await ws.ReceiveAsync(new ArraySegment<byte>(receiveBuffer), cts.Token);
+                
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
                     await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
+                    break;
+                }
+                else if (result.MessageType == WebSocketMessageType.Text)
+                {
+                    // Check for pong response (client sends "pong")
+                    var receivedText = Encoding.UTF8.GetString(receiveBuffer, 0, result.Count);
+                    if (receivedText.Trim().ToLower() == "pong")
+                    {
+                        lastPong = DateTime.Now;
+                    }
                 }
             }
         }
         catch { }
         finally
         {
+            pingTimer.Dispose();
             lock (_lock)
             {
                 _clients.Remove(ws);
             }
             try { ws.Abort(); } catch { }
             try { ws.Dispose(); } catch { }
-            Console.WriteLine("[WS] Клиент отключился");
+            Console.WriteLine("[WS] ������ ����������");
         }
     }
 
@@ -1423,13 +1528,11 @@ class Program
         _httpListener = new HttpListener();
 
         // Try binding directly to all interfaces (no proxy needed)
-        bool directBind = false;
         try
         {
             _httpListener.Prefixes.Add($"http://+:{HTTP_PORT}/");
             _httpListener.Start();
-            directBind = true;
-            Console.WriteLine($"[HTTP] Прямой bind на 0.0.0.0:{HTTP_PORT}");
+            Console.WriteLine($"[HTTP] ������ bind �� 0.0.0.0:{HTTP_PORT}");
         }
         catch
         {
@@ -1452,8 +1555,7 @@ class Program
                 _httpListener = new HttpListener();
                 _httpListener.Prefixes.Add($"http://+:{HTTP_PORT}/");
                 _httpListener.Start();
-                directBind = true;
-                Console.WriteLine($"[HTTP] Прямой bind на 0.0.0.0:{HTTP_PORT} (после urlacl)");
+                Console.WriteLine($"[HTTP] ������ bind �� 0.0.0.0:{HTTP_PORT} (����� urlacl)");
             }
             catch
             {
@@ -1467,13 +1569,13 @@ class Program
             }
         }
 
-        Console.WriteLine($"[HTTP] Сервер на 0.0.0.0:{HTTP_PORT}");
+        Console.WriteLine($"[HTTP] ������ �� 0.0.0.0:{HTTP_PORT}");
 
         string? staticDir = null;
 
         if (NO_FRONTEND)
         {
-            Console.WriteLine("[HTTP] NO_FRONTEND активен — статика не отдаётся, только API");
+            Console.WriteLine("[HTTP] NO_FRONTEND ������� � ������� �� �������, ������ API");
         }
         else
         {
@@ -1502,7 +1604,7 @@ class Program
 
             if (staticDir == null)
             {
-                Console.WriteLine("[HTTP] ОШИБКА: frontBuild не найден!");
+                Console.WriteLine("[HTTP] ������: frontBuild �� ������!");
                 return;
             }
 
@@ -1715,6 +1817,31 @@ class Program
         if (path == "/api/site-auth" && request.HttpMethod == "DELETE")
         {
             await HandleDeleteSiteAuth(response);
+            return;
+        }
+
+        // ========================================
+        // FRONTEND LOGS API
+        // ========================================
+
+        // API: POST /api/frontend-logs - receive frontend logs
+        if (path == "/api/frontend-logs" && request.HttpMethod == "POST")
+        {
+            await HandleFrontendLogs(request, response);
+            return;
+        }
+
+        // API: GET /api/frontend-logs - get stored frontend logs
+        if (path == "/api/frontend-logs" && request.HttpMethod == "GET")
+        {
+            await HandleGetFrontendLogs(response);
+            return;
+        }
+
+        // API: DELETE /api/frontend-logs - clear frontend logs
+        if (path == "/api/frontend-logs" && request.HttpMethod == "DELETE")
+        {
+            await HandleClearFrontendLogs(response);
             return;
         }
 
@@ -2410,6 +2537,116 @@ class Program
         catch { return "User"; }
     }
 
+    // ========================================
+    // FRONTEND LOGS HANDLERS
+    // ========================================
+
+    static async Task HandleFrontendLogs(HttpListenerRequest request, HttpListenerResponse response)
+    {
+        try
+        {
+            using var reader = new StreamReader(request.InputStream, request.ContentEncoding);
+            var body = await reader.ReadToEndAsync();
+            var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+
+            string message = "";
+            string level = "error";
+            string? stack = null;
+            string? source = null;
+
+            if (root.TryGetProperty("message", out var msgProp)) message = msgProp.GetString() ?? "";
+            if (root.TryGetProperty("level", out var levelProp)) level = levelProp.GetString() ?? "error";
+            if (root.TryGetProperty("stack", out var stackProp)) stack = stackProp.GetString();
+            if (root.TryGetProperty("source", out var sourceProp)) source = sourceProp.GetString();
+
+            var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            var logEntry = stack != null
+                ? $"[{timestamp}] [{level.ToUpper()}] {source}: {message}\n{stack}"
+                : $"[{timestamp}] [{level.ToUpper()}] {source}: {message}";
+
+            lock (_frontendLogsLock)
+            {
+                _frontendLogs.Add(logEntry);
+                // Keep only last 100 entries
+                if (_frontendLogs.Count > 100)
+                    _frontendLogs.RemoveAt(0);
+            }
+
+            Logger.Error($"Frontend {level}: {message}");
+
+            var result = Encoding.UTF8.GetBytes("{\"success\":true}");
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+            Console.WriteLine($"[FrontendLog] {level}: {message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[FrontendLog] Error processing log: {ex.Message}");
+            response.StatusCode = 400;
+            var err = Encoding.UTF8.GetBytes("{\"error\":\"Invalid JSON\"}");
+            response.ContentType = "application/json; charset=utf-8";
+            await response.OutputStream.WriteAsync(err);
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandleGetFrontendLogs(HttpListenerResponse response)
+    {
+        try
+        {
+            lock (_frontendLogsLock)
+            {
+                var logs = _frontendLogs.ToArray();
+                var json = JsonSerializer.Serialize(new { logs });
+                var content = Encoding.UTF8.GetBytes(json);
+                response.ContentType = "application/json; charset=utf-8";
+                response.ContentLength64 = content.Length;
+                response.OutputStream.WriteAsync(content);
+                Console.WriteLine($"[FrontendLog] Returned {logs.Length} log entries");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[FrontendLog] Error getting logs: {ex.Message}");
+            response.StatusCode = 500;
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    static async Task HandleClearFrontendLogs(HttpListenerResponse response)
+    {
+        try
+        {
+            lock (_frontendLogsLock)
+            {
+                _frontendLogs.Clear();
+            }
+
+            var result = Encoding.UTF8.GetBytes("{\"success\":true}");
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentLength64 = result.Length;
+            await response.OutputStream.WriteAsync(result);
+            Console.WriteLine("[FrontendLog] Logs cleared");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[FrontendLog] Error clearing logs: {ex.Message}");
+            response.StatusCode = 500;
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
     static async Task HandleAuthCallback(HttpListenerRequest request, HttpListenerResponse response)
     {
         try
@@ -2829,6 +3066,166 @@ class Program
     }
 
     // ========================================
+    // AUTO-UPDATE
+    // ========================================
+
+    static string ReadCurrentVersion()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "_app", "version.json"),
+            Path.Combine(AppContext.BaseDirectory, "frontBuild", "_app", "version.json"),
+            Path.Combine(AppContext.BaseDirectory, "..", "frontBuild", "_app", "version.json"),
+        };
+
+        foreach (var path in candidates)
+        {
+            if (File.Exists(path))
+            {
+                try
+                {
+                    var json = File.ReadAllText(path);
+                    using var doc = JsonDocument.Parse(json);
+                    return doc.RootElement.GetProperty("version").GetString() ?? "";
+                }
+                catch { }
+            }
+        }
+        return "";
+    }
+
+    static async Task CheckForUpdatesAsync()
+    {
+        try
+        {
+            _currentVersion ??= ReadCurrentVersion();
+            Console.WriteLine($"[Update] Current version: {_currentVersion}");
+
+            _httpUpdate.DefaultRequestHeaders.UserAgent.ParseAdd("UnikPlayer");
+            var response = await _httpUpdate.GetStringAsync(GITHUB_API_URL);
+            using var doc = JsonDocument.Parse(response);
+            var root = doc.RootElement;
+
+            _latestVersion = root.GetProperty("tag_name").GetString() ?? "";
+            Console.WriteLine($"[Update] Latest version: {_latestVersion}");
+
+            if (!string.IsNullOrEmpty(_currentVersion) && _latestVersion != _currentVersion)
+            {
+                // Find installer asset
+                var assets = root.GetProperty("assets");
+                foreach (var asset in assets.EnumerateArray())
+                {
+                    var name = asset.GetProperty("name").GetString() ?? "";
+                    if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _latestInstallerUrl = asset.GetProperty("browser_download_url").GetString();
+                        break;
+                    }
+                }
+
+                if (_latestInstallerUrl != null)
+                {
+                    _updateAvailable = true;
+                    Console.WriteLine($"[Update] Update available: {_latestVersion}");
+                    UpdateTrayIcon(true);
+                }
+            }
+            else
+            {
+                Console.WriteLine("[Update] Up to date");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Update] Check failed: {ex.Message}");
+        }
+    }
+
+    static void UpdateTrayIcon(bool updateAvailable)
+    {
+        if (_trayIcon == null) return;
+
+        var iconPaths = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, updateAvailable ? "icon_update.ico" : "icon.ico"),
+            Path.Combine(Directory.GetCurrentDirectory(), updateAvailable ? "icon_update.ico" : "icon.ico"),
+        };
+
+        foreach (var path in iconPaths)
+        {
+            if (File.Exists(path))
+            {
+                try
+                {
+                    _trayIcon.Icon = new Icon(path);
+                    break;
+                }
+                catch { }
+            }
+        }
+
+        if (_updateMenuItem != null)
+            _updateMenuItem.Visible = updateAvailable;
+    }
+
+    static async Task StartUpdate(bool relaunch)
+    {
+        if (_latestInstallerUrl == null) return;
+
+        try
+        {
+            var tempDir = Path.GetTempPath();
+            var installerPath = Path.Combine(tempDir, "UnikPlayer_Installer.exe");
+            var vbsPath = Path.Combine(tempDir, "unik_update.vbs");
+
+            // Download installer
+            Console.WriteLine($"[Update] Downloading: {_latestInstallerUrl}");
+            using (var response = await _httpUpdate.GetAsync(_latestInstallerUrl))
+            {
+                response.EnsureSuccessStatusCode();
+                await using var fs = new FileStream(installerPath, FileMode.Create);
+                await response.Content.CopyToAsync(fs);
+            }
+            Console.WriteLine("[Update] Download complete");
+
+            // Create VBS launcher (invisible)
+            var appPath = Process.GetCurrentProcess().MainModule?.FileName ?? "";
+            var relaunchCmd = relaunch
+                ? $"WshShell.Run \"\\\"{appPath}\\\" --autostart\", 1, False"
+                : "";
+            var vbsContent = $"""
+                Set WshShell = CreateObject("WScript.Shell")
+                WScript.Sleep 3000
+                WshShell.Run "\\\"{installerPath}\\\" /S", 0, True
+                {relaunchCmd}
+                WScript.Sleep 2000
+                Set fso = CreateObject("Scripting.FileSystemObject")
+                fso.DeleteFile WScript.ScriptFullName
+                """;
+            await File.WriteAllTextAsync(vbsPath, vbsContent);
+
+            // Launch VBS invisibly
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "wscript.exe",
+                Arguments = $"\"{vbsPath}\"",
+                WindowStyle = ProcessWindowStyle.Hidden,
+                CreateNoWindow = true
+            });
+
+            Console.WriteLine("[Update] Update launched, closing...");
+            await Task.Delay(500);
+
+            _trayIcon.Visible = false;
+            Application.Exit();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Update] Error: {ex.Message}");
+        }
+    }
+
+    // ========================================
     // HTML VALIDATION
     // ========================================
 
@@ -2964,7 +3361,7 @@ class Program
     };
 }
 
-// Темная тема для контекстного меню
+// ������ ���� ��� ������������ ����
 class DarkMenuRenderer : ToolStripProfessionalRenderer
 {
     public DarkMenuRenderer() : base(new DarkColorTable()) { }

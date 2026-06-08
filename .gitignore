@@ -24,6 +24,7 @@ projBuild/
 # AI
 .claude
 CLAUDE.MD
+dev-for-ai.md
 tmpclaude-*
 .clinerules.md
 

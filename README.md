@@ -1,240 +1,186 @@
 <p align="center">
-  <img width="541" height="183" alt="Снимок экрана 2026-01-15 100101" src="https://github.com/user-attachments/assets/1210ccc5-1d73-416f-ab32-c63790be01fd" />
+  <img width="541" height="183" alt="UnikPlayer" src="https://github.com/user-attachments/assets/1210ccc5-1d73-416f-ab32-c63790be01fd" />
 </p>
 
----
+<br/>
+
+<div align="center">
+
+[![Release](https://img.shields.io/github/v/release/UNIKNOW0/unik-player?style=for-the-badge&label=VERSION)](https://github.com/UNIKNOW0/unik-player/releases/latest)
+[![Windows](https://img.shields.io/badge/PLATFORM-Windows%2010%2F11-0078D6?style=for-the-badge&logo=windows)](https://github.com/UNIKNOW0/unik-player)
+[![License](https://img.shields.io/badge/LICENSE-WTFPL-blue?style=for-the-badge)](LICENSE)
+
+<br/>
+
+# [**СКАЧАТЬ**](https://github.com/UNIKNOW0/unik-player/releases/latest/download/UnikPlayer_Installer.exe)
+
+<br/>
+
+</div>
 
 # UnikPlayer
 
-**Музыкальный виджет для OBS, который показывает текущий трек с любого приложения на вашем устройстве**
-
-[![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows)](https://github.com/UNIKNOW0/unik-player)
-[![Release](https://img.shields.io/github/v/release/UNIKNOW0/unik-player?style=flat-square&color=green)](https://github.com/UNIKNOW0/unik-player/releases)
-[![License](https://img.shields.io/badge/License-WTFPL-blue?style=flat-square)](LICENSE)
-
----
-
-https://github.com/user-attachments/assets/b2710d57-1137-494b-a54d-e566e40b7385
-
+### UnikPlayer — десктопный медиа-виджет для Windows, который захватывает информацию о текущем треке из **любого** приложения и показывает его на стриме через OBS.
 
 ## Возможности
 
-- **Универсальный захват** — работает с любым музыкальным приложением (Spotify, Яндекс.Музыка, VK Music, браузер и др.)
-- **Интеграция с OBS** — готовый виджет для стримов
-- **Кастомизация** — настройка внешнего вида под ваш стиль
-- **Лёгкий** — минимальное потребление ресурсов
-- **Авто-обновление** — автоматическое определение смены трека
-
----
+- Универсальный захват медиа — работает с любым SMTC-совместимым приложением
+- Кастомизация визуала — изменение цветов, шрифтов, CSS каждого плеера
+- Встроенные варианты оформления — несколько готовых плееров из коробки
+- Кастомные HTML-плееры — создание собственных плееров на HTML/CSS
+- Интеграция с OBS — подключение через Browser Source
+- Автообновление — фоновая проверка и тихая установка обновлений
+- Системный трей — приложение работает в фоне
+- Media Filter — фильтрация источников по приложениям
 
 ## Вариации плееров
 
-<img width="518" height="172" alt="image" src="https://github.com/user-attachments/assets/0796aa66-2e62-498f-87bb-9860b2715606" />
-
-<img width="518" height="172" alt="image" src="https://github.com/user-attachments/assets/7bb229e4-20f2-4e9f-88cd-b638ea819f47" />
-
-<img width="518" height="172" alt="image" src="https://github.com/user-attachments/assets/002314dc-a1a6-4dff-9c84-42552066fc90" />
-
-<img width="518" height="172" alt="image" src="https://github.com/user-attachments/assets/d167507d-1a90-4387-a5a1-58abad732dc7" />
-
-<img width="518" height="172" alt="image" src="https://github.com/user-attachments/assets/ef7eac36-33c2-48b9-bf4d-e4dcf02ea8c8" />
+<img width="518" height="172" alt="Players" src="https://github.com/user-attachments/assets/0796aa66-2e62-498f-87bb-9860b2715606" />
+<img width="518" height="172" alt="Players" src="https://github.com/user-attachments/assets/7bb229e4-20f2-4e9f-88cd-b638ea819f47" />
+<img width="518" height="172" alt="Players" src="https://github.com/user-attachments/assets/002314dc-a1a6-4dff-9c84-42552066fc90" />
+<img width="518" height="172" alt="Players" src="https://github.com/user-attachments/assets/d167507d-1a90-4387-a5a1-58abad732dc7" />
+<img width="518" height="172" alt="Players" src="https://github.com/user-attachments/assets/ef7eac36-33c2-48b9-bf4d-e4dcf02ea8c8" />
 
 ---
 
-## Требования для разработки
+## Системные требования
 
-### Системные требования
 - Windows 10/11 (x64)
-- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
-- [Node.js 18+](https://nodejs.org/)
+
+## Разработка
 
 ### Зависимости
 
-**Frontend (Svelte/SvelteKit):**
+- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
+- [Node.js 18+](https://nodejs.org/)
+- [NSIS](https://nsis.sourceforge.io/) (для сборки установщика)
+
+### Быстрый старт
+
+**1. Установить зависимости фронтенда:**
 ```bash
 cd frontend
 npm install
 ```
 
-**Backend (C#/.NET 9):**
-Зависимости устанавливаются автоматически при сборке через NuGet:
-- `Dubya.WindowsMediaController` - для работы с Windows SMTC
-- `System.Text.Json` - сериализация JSON
-
----
-
-## Разработка
-
-### Dev Mode
-
-В dev mode данные хранятся локально в `dev-data/` вместо `%LOCALAPPDATA%\UnikPlayer\`.
-
-**Настройка:**
-```bash
-# Скопировать .env.example в .env (уже сделано по умолчанию)
-cp backend-csharp/UnikPlayer/.env.example backend-csharp/UnikPlayer/.env
-```
-
-**`.env` конфигурация:**
-```env
-DEV_MODE=true              # true = локальные пути, false = %LOCALAPPDATA%
-DEV_DATA_DIR=../../dev-data  # Путь к dev данным
-```
-
-**Структура dev-data:**
-```
-dev-data/
-├── player-styles.json    # Настройки плееров (цвет, шрифт)
-└── css/
-    ├── BackPicture.css   # CSS для каждого плеера
-    ├── BigHead.css
-    ├── Generic.css
-    ├── Separate.css
-    └── Square.css
-```
-
-### Быстрый старт
-
-**Терминал 1 - Backend (C#):**
+**2. Запустить бэкенд (C#):**
 ```bash
 cd backend-csharp/UnikPlayer
 dotnet run
 ```
-Запустится HTTP сервер на `http://localhost:27272` и WebSocket на `ws://localhost:62727`
 
-**Терминал 2 - Frontend (с hot reload):**
+**3. Запустить фронтенд (отдельный терминал):**
 ```bash
 cd frontend
 npm run dev
 ```
-Запустится dev сервер на `http://localhost:5173`
+
+**4. Открыть в браузере:**
+```
+http://localhost:5173
+```
+
+**Адрес сайта для разработки и собранного проекта отличается!**
+
+### Dev Mode
+
+В dev mode данные хранятся локально в `dev-data/` вместо `%LOCALAPPDATA%\UnikPlayer`.
+
+Конфигурация в `backend-csharp/UnikPlayer/.env`:
+```
+DEV_MODE=true
+DEV_DATA_DIR=../../dev-data
+```
+
+Структура данных:
+```
+dev-data/
+  player-styles.json    -- настройки плееров (цвет, шрифт)
+  css/
+    BackPicture.css
+    BigHead.css
+    Generic.css
+    Separate.css
+    Square.css
+  custom/               -- кастомные HTML-плееры
+  media-filter.json     -- фильтр источников
+```
 
 ### Порты
-| Сервис | Порт |
-|--------|------|
-| HTTP (статика) | 27272 |
-| WebSocket | 62727 |
-| Vite Dev Server | 5173 |
 
----
+| Сервис           | Порт  |
+|------------------|-------|
+| HTTP (статика)   | 27272 |
+| WebSocket        | 62727 |
+| Vite Dev Server  | 5173  |
 
-## CSS Кастомизация
+### Полная сборка
 
-Каждый плеер имеет свой CSS файл в `dev-data/css/` (dev) или `%LOCALAPPDATA%\UnikPlayer\css\` (prod).
-
-### Важно: стилизация текста
-
-Для стилизации текста используйте `.className *` вместо просто `.className`:
-
-```css
-/* ❌ Неправильно - не сработает */
-.title {
-  font-size: 2rem;
-}
-
-/* ✅ Правильно - marquee создаёт дочерние элементы */
-.title * {
-  font-size: 2rem;
-  color: var(--lightVibrant);
-}
-```
-
-### CSS переменные цветов
-
-Доступны переменные из обложки альбома (или статический цвет):
-
-| Переменная | Описание |
-|------------|----------|
-| `var(--vibrant)` | Основной яркий цвет |
-| `var(--lightVibrant)` | Светлый яркий |
-| `var(--darkVibrant)` | Тёмный яркий |
-| `var(--muted)` | Приглушённый |
-| `var(--lightMuted)` | Светлый приглушённый |
-| `var(--darkMuted)` | Тёмный приглушённый (фон) |
-
-### Структура плееров
-
-| Плеер | Классы |
-|-------|--------|
-| **Generic** | `.mainDiv` > `.picDiv` > `.pic` + `.textDiv` > `.title *` + `.artist *` |
-| **BigHead** | `.mainDiv` > `.picDiv` > `.pic` + `.textDiv` > `.title *` + `.artist *` |
-| **Square** | `.mainDiv` > `.mainDivGlow` + `.textDiv` > `.blurDiv` + `.title *` + `.artist *` |
-| **Separate** | `.mainDiv` > `.picDiv` + `.textDiv` > `.titleDiv` > `.title *` + `.artistDiv` > `.artist *` |
-| **BackPicture** | `.mainDiv` > `.mainDivGlow` + `.textDiv` > `.blurDiv` + `.title *` + `.artist *` |
-
----
-
-## Полная сборка до установщика:
-
+```bash
 npm run build:all
+```
 
-# 1. Сборка Frontend
-```
-cd frontend && npm run build && cd ..
-```
-# 2. Сборка C# Backend
-```
-cd backend-csharp/UnikPlayer
-dotnet publish -c Release
-cd ../..
-```
-# 3. Сборка инсталлера NSIS Installer
-```
-makensis projBuild/installer.nsi
-```
-### 1. Сборка Frontend
-```bash
-cd frontend
-npm run build
-```
-Результат: статические файлы в папке `frontBuild/`
+Эта команда:
+1. Пишет git-хеш текущего коммита в `frontBuild/_app/version.json`
+2. Собирает фронтенд (SvelteKit -> статика в `frontBuild/`)
+3. Собирает бэкенд (.NET -> `UnikPlayer.exe`)
+4. Собирает установщик (NSIS -> `UnikPlayer_Installer.exe`)
 
-### 2. Сборка Backend (Release)
+Ручные шаги по отдельности:
+
 ```bash
+# Фронтенд
+cd frontend && npm run build
+
+# Бэкенд
 cd backend-csharp/UnikPlayer
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+
+# Установщик
+cd projBuild
+makensis installer.nsi
 ```
-Результат: `bin/Release/net9.0-windows10.0.17763.0/win-x64/publish/UnikPlayer.exe`
-
-
-## Технологии
-
-| Компонент | Технология |
-|-----------|------------|
-| Frontend | SvelteKit 2, Vite 7 |
-| Backend | C# / .NET 9 |
-| SMTC | Dubya.WindowsMediaController |
-| Стили | SCSS, Flowbite |
-
----
 
 ## Структура проекта
 
 ```
 unikPlayer/
-├── backend-csharp/     # C# backend (основной)
-│   └── UnikPlayer/
-│       ├── Program.cs
-│       └── UnikPlayer.csproj
-├── frontend/           # Svelte frontend
-│   ├── src/
-│   │   ├── lib/
-│   │   │   ├── players/      # Компоненты плееров
-│   │   │   ├── stores/       # Svelte stores
-│   │   │   └── ws.js         # WebSocket клиент
-│   │   └── routes/
-│   └── package.json
-├── frontBuild/         # Собранный фронтенд
-├── projBuild/          # Файлы для сборки установщика
-└── README.md
+  backend-csharp/           -- C# бэкенд
+    UnikPlayer/
+      Program.cs            -- HTTP, WebSocket, SMTC, трей, автообновление
+      Logger.cs
+      UnikPlayer.csproj
+      .env
+  frontend/                 -- SvelteKit фронтенд
+    src/
+      lib/
+        components/         -- Svelte компоненты
+        players/            -- компоненты плееров
+        stores/             -- Svelte stores
+      routes/               -- страницы
+    static/                 -- статические ассеты
+      guide.json            -- шаги интерактивного гайда
+      hands/                -- изображения рук для гайда
+      tts/                  -- аудиофайлы для гайда
+  frontBuild/               -- собранный фронтенд (отдаётся бэкендом)
+  projBuild/
+    installer.nsi           -- NSIS скрипт установщика
+    static/
+      icon.ico
+      icon_update.ico       -- иконка для трея при доступном обновлении
 ```
 
----
+## Технологии
+
+| Компонент     | Технология                               |
+|---------------|------------------------------------------|
+| Frontend      | SvelteKit 2, Svelte 5, Vite 7            |
+| Backend       | C#, .NET 9, HttpListener, WebSockets     |
+| SMTC          | Dubya.WindowsMediaController             |
+| Стили         | SCSS, Flowbite Svelte                    |
+| Установщик    | NSIS                                     |
+| Иконки        | Svg.NET                                  |
 
 ## Лицензия
 
-This project is open source and available under the [WTFPL](https://www.wtfpl.net/).
-
-## Оффтоп
-
-Работал над этим проектом исключительно потому, что не нашел плеера для себя. мне не нравились дизайны, которые уже есть и к тому же, они все работали лишь на одно приложение(только на ютуб музыку, только на браузер, только на спотифай). я хотел сделать ОДНУ программу, которая будет позволять захватывать звук с любого приложения и показывать его на стриме. чтобы дизайн можно было настроить для себя, под свои хотелки, А У КАЖДОГО ОНИ СВОИ! вы прикиньте? тематика стримов у всех разная и то, что сейчас есть на рынке плееров явно не будет нормально подходить под нужны каждого. Надеюсь, этот плеер и его идея понравится кому то кроме меня в комунити =D. буду рад, если поможете мне еще распространить. 
+Этот проект распространяется под лицензией [WTFPL](https://www.wtfpl.net/).
