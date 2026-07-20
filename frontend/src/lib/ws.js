@@ -19,6 +19,7 @@ let mediaData = null;
 let ws;
 let reconnectTimeout = 1000;
 let currentBlobUrl = null;
+let currentBlob = null;
 let isConnected = false;
 let healthCheckInterval = null;
 let lastMessageTime = Date.now();
@@ -33,6 +34,58 @@ let lastThumbnailHash = null; // hash instead of reference comparison
 
 // Delay before hiding player (prevents flash on track switch)
 let hideTimeout = null;
+
+// Detect Windows 10 at startup (once)
+let isWindows10 = false;
+if (typeof window !== 'undefined') {
+  const ua = navigator.userAgent;
+  if (ua.includes('Windows NT 10.0') || ua.includes('Windows NT 6.3') || ua.includes('Windows NT 6.2') || ua.includes('Windows NT 6.1')) {
+    isWindows10 = true;
+  }
+  console.log("[WS] UserAgent:", ua);
+  console.log("[WS] isWindows10:", isWindows10);
+}
+
+// Crop Spotify branding bar from thumbnails (Win 10)
+// Removes 35px left/right, 70px bottom
+async function cropSpotifyThumbnail(blob) {
+  const img = await new Promise((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = reject;
+    i.src = URL.createObjectURL(blob);
+  });
+
+  const w = img.width;
+  const h = img.height;
+  console.log("[CROP] Original size:", w, "×", h);
+
+  // If image is too small, skip
+  if (w <= 70 || h <= 70) {
+    console.log("[CROP] Image too small, skipping");
+    URL.revokeObjectURL(img.src);
+    return blob;
+  }
+
+  const cropX = 35;
+  const cropRight = 35;
+  const cropBottom = 70;
+
+  const outW = w - cropX - cropRight;
+  const outH = h - cropBottom;
+  console.log("[CROP] Output size:", outW, "×", outH);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = outW;
+  canvas.height = outH;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, cropX, 0, outW, outH, 0, 0, outW, outH);
+
+  const croppedBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  URL.revokeObjectURL(img.src);
+  console.log("[CROP] Done");
+  return croppedBlob;
+}
 
 // Simple hash for thumbnail byte arrays (avoids reference comparison on arrays)
 function thumbnailHash(data) {
@@ -95,9 +148,9 @@ export async function connect() {
     }
   }
 
-  // Use relative path - Vite proxies /ws in dev, backend handles in prod
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const url = `${protocol}//${window.location.host}/ws`;
+  // Connect directly to the backend WebSocket server (port 62727)
+  // In dev, Vite proxies /ws but direct connection also works
+  const url = `ws://127.0.0.1:62727/ws`;
   console.log("[WS] Connecting to", url);
 
   try {
@@ -129,7 +182,7 @@ export async function connect() {
     }, HEALTH_CHECK_MS);
   };
 
-  ws.onmessage = (e) => {
+  ws.onmessage = async (e) => {
     lastMessageTime = Date.now();
     
     // Handle ping/pong keep-alive
@@ -211,6 +264,7 @@ export async function connect() {
           if (currentBlobUrl) {
             URL.revokeObjectURL(currentBlobUrl);
             currentBlobUrl = null;
+            currentBlob = null;
           }
 
           // Р•СЃР»Рё РЅРµС‚ thumbnail - РѕСЃС‚Р°РІР»СЏРµРј null
@@ -225,6 +279,7 @@ export async function connect() {
             // РњР°СЃСЃРёРІ Р±Р°Р№С‚РѕРІ РЅР°РїСЂСЏРјСѓСЋ
             const bytes = new Uint8Array(base64);
             const blob = new Blob([bytes], { type: "image/png" });
+            currentBlob = blob;
             currentBlobUrl = URL.createObjectURL(blob);
             newThumbnailUrl = currentBlobUrl;
           } else if (
@@ -237,6 +292,7 @@ export async function connect() {
             // Node Buffer serialized as {type: 'Buffer', data: [...]}
             const bytes = new Uint8Array(base64.data);
             const blob = new Blob([bytes], { type: "image/png" });
+            currentBlob = blob;
             currentBlobUrl = URL.createObjectURL(blob);
             newThumbnailUrl = currentBlobUrl;
           } else if (typeof base64 === "string") {
@@ -256,6 +312,7 @@ export async function connect() {
                 bytes[i] = binaryString.charCodeAt(i);
               }
               const blob = new Blob([bytes], { type: "image/png" });
+              currentBlob = blob;
               currentBlobUrl = URL.createObjectURL(blob);
               newThumbnailUrl = currentBlobUrl;
             } catch (decodeErr) {
@@ -267,6 +324,27 @@ export async function connect() {
             }
           }
 
+          // Crop Spotify branding bar on Windows 10
+          const srcName = (mediaData.source || "").toLowerCase();
+          console.log("[WS] Crop check:", { isWindows10, source: mediaData.source, hasBlob: !!currentBlob });
+          if (isWindows10 && srcName.includes('spotify') && currentBlob) {
+            console.log("[WS] Applying Spotify thumbnail crop...");
+            try {
+              const croppedBlob = await cropSpotifyThumbnail(currentBlob);
+              if (croppedBlob !== currentBlob) {
+                console.log("[WS] Crop applied successfully");
+                URL.revokeObjectURL(currentBlobUrl);
+                currentBlobUrl = URL.createObjectURL(croppedBlob);
+                newThumbnailUrl = currentBlobUrl;
+                currentBlob = croppedBlob;
+              } else {
+                console.log("[WS] Crop skipped — image already square");
+              }
+            } catch (e) {
+              console.warn("[WS] Thumbnail crop failed, using original:", e);
+            }
+          }
+
           // Extract colors from new thumbnail (only if we have one and Vibrant is loaded)
           if (newThumbnailUrl && Vibrant) {
             Vibrant.from(newThumbnailUrl)
@@ -274,6 +352,8 @@ export async function connect() {
               .then((palette) => {
                 console.log("[Vibrant] Palette extracted:", palette);
                 rgbToHex(palette);
+                // Notify components that :root colors are fresh
+                window.dispatchEvent(new CustomEvent('unik-colors-updated'));
               })
               .catch((err) => {
                 console.error("[Vibrant] Failed to extract palette:", err);

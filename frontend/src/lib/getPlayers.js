@@ -74,6 +74,26 @@ export function invalidateCustomPlayersCache() {
 }
 
 /**
+ * Fetch built-in players from API (players/ directory, served as static)
+ * @returns {Promise<Array<{name: string}>>}
+ */
+async function fetchBuiltInPlayers() {
+  try {
+    const res = await fetch(`${getApiBase()}/api/players`);
+    if (res.ok) {
+      const data = await res.json();
+      const players = data.players || [];
+      // Update cache for sync getPickedPlayer
+      knownExamplePlayers = players.map(p => p.name);
+      return players;
+    }
+  } catch (e) {
+    console.error('Failed to fetch built-in players:', e);
+  }
+  return [];
+}
+
+/**
  * Get metadata for a player (built-in only)
  * @param {string} name - Player name
  * @returns {{ name: string, defaultCSS: string } | null}
@@ -106,13 +126,12 @@ export function getAllPlayers() {
 }
 
 /**
- * Get all players including custom (async version)
- * @returns {Promise<Array<{component: any, name: string, isCustom: boolean, hasBackup?: boolean, error?: string}>>}
+ * Get all players including custom and example (async version)
+ * @returns {Promise<Array<{component: any, name: string, isCustom: boolean, isExample?: boolean, hasBackup?: boolean, error?: string}>>}
  */
 export async function getAllPlayersAsync() {
   const builtIn = Object.entries(builtInPlayers).map(([name, { component }]) => {
     try {
-      // РџСЂРѕРІРµСЂСЏРµРј С‡С‚Рѕ РєРѕРјРїРѕРЅРµРЅС‚ РІР°Р»РёРґРЅС‹Р№
       if (!component) {
         return {
           component: null,
@@ -144,13 +163,29 @@ export async function getAllPlayersAsync() {
     hasBackup: p.hasBackup
   }));
 
-  return [...builtIn, ...customMapped];
+  const players = await fetchBuiltInPlayers();
+  const playersMapped = players.map(p => ({
+    component: CustomPlayerRenderer,
+    name: p.name,
+    isCustom: false,
+    isExample: true
+  }));
+
+  return [...builtIn, ...playersMapped, ...customMapped];
 }
 
 /**
  * Get picked player by name
  * @param {string} styleName
  * @returns {Array<{component: any, name: string, isCustom: boolean}>}
+ */
+// Cache of known example player names (populated by getAllPlayersAsync / fetchBuiltInPlayers)
+let knownExamplePlayers = [];
+
+/**
+ * Get picked player by name (sync — relies on cached names for example players)
+ * @param {string} styleName
+ * @returns {Array<{component: any, name: string, isCustom: boolean, isExample?: boolean}>}
  */
 export function getPickedPlayer(styleName) {
   if (!styleName) return [];
@@ -164,8 +199,17 @@ export function getPickedPlayer(styleName) {
     }];
   }
 
-  // If not built-in, assume it's a custom player
-  // CustomPlayerRenderer will handle loading the HTML
+  // Check if it's a known example player (from players/ directory)
+  if (knownExamplePlayers.includes(styleName)) {
+    return [{
+      component: CustomPlayerRenderer,
+      name: styleName,
+      isCustom: false,
+      isExample: true
+    }];
+  }
+
+  // Fallback: assume it's a custom player
   return [{
     component: CustomPlayerRenderer,
     name: styleName,

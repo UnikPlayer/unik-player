@@ -49,10 +49,6 @@
 {/if}
 
 {#if showHeader}
-  <header>
-    <a href="/" class="nav-link">PLAYERS</a>
-    <a href="/howToMake" class="nav-link">DOCS</a>
-  </header>
 {/if}
 
 <slot />

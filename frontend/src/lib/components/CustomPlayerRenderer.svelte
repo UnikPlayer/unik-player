@@ -1,4 +1,4 @@
-﻿<script>
+<script>
     import { onMount, tick } from "svelte";
     import { fly } from "svelte/transition";
     import {
@@ -6,7 +6,9 @@
         trackPosition,
         trackDuration,
         isPlaying,
+        ShowTrack,
     } from "$lib/stores/stores.js";
+    import { marquee } from "$lib/marquee.js";
 
     function getApiBase() {
         if (typeof window === "undefined") return "http://127.0.0.1:27272";
@@ -16,6 +18,8 @@
     }
 
     export let playerName = "";
+    export let showAlways = false;
+    export let isExample = false;
     export let title = "";
     export let artist = "";
     export let thumbnail = "";
@@ -27,65 +31,57 @@
         lightMuted: "#B87333",
         darkMuted: "rgba(20, 15, 10, 0.9)",
     };
+
+    $: safeColors = computeColors(colors, title, artist, colorVersion);
+    let colorVersion = 0;
+
+    function handleColorsUpdated() {
+        colorVersion++;
+    }
+
+    function computeColors(cols, _titleDep, _artistDep, _ver) {
+        if (cols) return cols;
+        const root = readRootColors();
+        return root || {
+            vibrant: "#D4944A",
+            lightVibrant: "#F5DEB3",
+            darkVibrant: "#5C4033",
+            muted: "#8B6914",
+            lightMuted: "#B87333",
+            darkMuted: "rgba(20, 15, 10, 0.9)",
+        };
+    }
+
+    function readRootColors() {
+        if (typeof document === 'undefined') return null;
+        const style = getComputedStyle(document.documentElement);
+        const vibrant = style.getPropertyValue('--vibrant').trim();
+        if (!vibrant || vibrant === '#D4944A') return null;
+        return {
+            vibrant,
+            lightVibrant: style.getPropertyValue('--lightVibrant').trim() || '#F5DEB3',
+            darkVibrant: style.getPropertyValue('--darkVibrant').trim() || '#5C4033',
+            muted: style.getPropertyValue('--muted').trim() || '#8B6914',
+            lightMuted: style.getPropertyValue('--lightMuted').trim() || '#B87333',
+            darkMuted: style.getPropertyValue('--darkMuted').trim() || 'rgba(20, 15, 10, 0.9)',
+        };
+    }
     export let font = "";
-    export let visible = true;
 
     let htmlTemplate = "";
     let loading = true;
     let error = "";
-    let iframeEl = null;
-    let iframeReady = false;
+    let shadowHost = null;
+    let shadowRoot = null;
 
-    // Track key вЂ” only recreate iframe on track change, NOT on progress
     $: trackKey = `${title}||${artist}`;
 
-    // Runtime script injected into iframe вЂ” handles postMessage updates
-    const RUNTIME_SCRIPT = `
-<script>
-  window.addEventListener('message', function(e) {
-    if (!e.data || e.data.type !== 'unik-update') return;
-    var d = e.data;
-
-    // Update data-bind elements
-    document.querySelectorAll('[data-bind]').forEach(function(el) {
-      var bind = el.getAttribute('data-bind');
-      if (bind === 'progress-width' && d.progress !== undefined) {
-        el.style.width = d.progress + '%';
-      } else if (bind === 'currentTime' && d.currentTime !== undefined) {
-        el.textContent = d.currentTime;
-      } else if (bind === 'totalTime' && d.totalTime !== undefined) {
-        el.textContent = d.totalTime;
-      } else if (bind === 'progress' && d.progress !== undefined) {
-        el.textContent = d.progress.toFixed(1);
-      } else if (bind === 'position' && d.position !== undefined) {
-        el.textContent = Math.floor(d.position);
-      } else if (bind === 'duration' && d.duration !== undefined) {
-        el.textContent = Math.floor(d.duration);
-      } else if (bind === 'playing') {
-        el.setAttribute('data-playing', d.isPlaying ? 'true' : 'false');
-      }
-    });
-
-    // Update CSS color variables
-    if (d.colors) {
-      var r = document.documentElement.style;
-      if (d.colors.vibrant) r.setProperty('--vibrant', d.colors.vibrant);
-      if (d.colors.lightVibrant) r.setProperty('--lightVibrant', d.colors.lightVibrant);
-      if (d.colors.darkVibrant) r.setProperty('--darkVibrant', d.colors.darkVibrant);
-      if (d.colors.muted) r.setProperty('--muted', d.colors.muted);
-      if (d.colors.lightMuted) r.setProperty('--lightMuted', d.colors.lightMuted);
-      if (d.colors.darkMuted) r.setProperty('--darkMuted', d.colors.darkMuted);
+    function formatTime(seconds) {
+        if (!seconds || seconds < 0) return "0:00";
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, "0")}`;
     }
-
-    // Update font
-    if (d.font) {
-      document.body.style.fontFamily = '"' + d.font + '", sans-serif';
-    }
-  });
-
-  // Signal parent that iframe is ready
-  window.parent.postMessage({ type: 'unik-ready' }, '*');
-<\/script>`;
 
     function escapeHtml(str) {
         if (!str) return "";
@@ -97,159 +93,99 @@
             .replace(/'/g, "&#039;");
     }
 
-    function formatTime(seconds) {
-        if (!seconds || seconds < 0) return "0:00";
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs.toString().padStart(2, "0")}`;
+    function renderProgressBarHTML(tag) {
+        const h = (tag.match(/height="([^"]+)"/) || [])[1] || '4px';
+        const br = (tag.match(/border-radius="([^"]+)"/) || [])[1] || (tag.match(/borderRadius="([^"]+)"/) || [])[1] || '2px';
+        const showTime = !tag.includes('showTime={false}') && !tag.includes('show-time="false"');
+
+        return `<div class="progress-container">
+  ${showTime ? '<span class="time current" data-bind="currentTime">0:00</span>' : ''}
+  <div class="progress-bar" style="height:${h};border-radius:${br};">
+    <div class="progress-fill" style="width:0%;border-radius:${br};" data-bind="progress-width"></div>
+    <div class="progress-glow" style="width:0%;" data-bind="progress-width"></div>
+  </div>
+  ${showTime ? '<span class="time total" data-bind="totalTime">0:00</span>' : ''}
+</div>`;
     }
 
-    // Process template once with track data + initial colors/font. No progress vars.
-    function buildSrcdoc(template, data, colorVars, fontFamily) {
-        if (!template) return "";
-
-        // Substitute track variables (static per track)
+    function renderToShadow(template) {
+        if (!shadowHost) return;
         let html = template
-            .replace(/\{\{title\}\}/g, escapeHtml(data.title || ""))
-            .replace(/\{\{artist\}\}/g, escapeHtml(data.artist || ""))
-            .replace(/\{\{thumbnail\}\}/g, data.thumbnail || "");
-
-        // Remove old {{progress}} etc placeholders вЂ” set initial values
-        html = html
+            .replace(/\{\{title\}\}/g, escapeHtml(title || ""))
+            .replace(/\{\{artist\}\}/g, escapeHtml(artist || ""))
+            .replace(/\{\{thumbnail\}\}/g, thumbnail || "")
             .replace(/\{\{progress\}\}/g, "0")
             .replace(/\{\{position\}\}/g, "0")
             .replace(/\{\{duration\}\}/g, "0")
             .replace(/\{\{currentTime\}\}/g, "0:00")
-            .replace(/\{\{totalTime\}\}/g, "0:00");
+            .replace(/\{\{totalTime\}\}/g, "0:00")
+            .replace(/<ProgressBarComponent\s[^>]*\/>/gi, (match) => renderProgressBarHTML(match));
 
-        // Build injected styles: colors + font + base reset
-        const fontCSS = fontFamily
-            ? `font-family: "${fontFamily}", sans-serif;`
-            : "";
-        const injectedCSS = `
-      :root {
-        --vibrant: ${colorVars.vibrant || "#D4944A"};
-        --lightVibrant: ${colorVars.lightVibrant || "#F5DEB3"};
-        --darkVibrant: ${colorVars.darkVibrant || "#5C4033"};
-        --muted: ${colorVars.muted || "#8B6914"};
-        --lightMuted: ${colorVars.lightMuted || "#B87333"};
-        --darkMuted: ${colorVars.darkMuted || "rgba(20, 15, 10, 0.9)"};
-      }
-      html, body {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        background: transparent;
-        ${fontCSS}
-      }
-      body {
-        width: 100%;
-        height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-    `;
-
-        // Inject CSS + runtime script before </head> or </body> or at end
-        const injection = `<style>${injectedCSS}</style>${RUNTIME_SCRIPT}`;
-        if (html.includes("</head>")) {
-            html = html.replace("</head>", `${injection}</head>`);
-        } else if (html.includes("</body>")) {
-            html = html.replace("</body>", `${injection}</body>`);
-        } else {
-            html += injection;
-        }
-
-        return html;
+        shadowRoot = shadowHost.attachShadow({ mode: 'open' });
+        shadowRoot.innerHTML = html;
+        updateShadowColors(safeColors, font);
     }
 
-    // Build srcdoc only on track change (not progress)
-    $: srcdoc = buildSrcdoc(
-        htmlTemplate,
-        { title, artist, thumbnail },
-        colors,
-        font,
-    );
+    function updateShadowColors(colVars, fontName) {
+        if (!shadowRoot) return;
+        const cssVars = `:root {
+  --vibrant: ${colVars.vibrant || "#D4944A"};
+  --lightVibrant: ${colVars.lightVibrant || "#F5DEB3"};
+  --darkVibrant: ${colVars.darkVibrant || "#5C4033"};
+  --muted: ${colVars.muted || "#8B6914"};
+  --lightMuted: ${colVars.lightMuted || "#B87333"};
+  --darkMuted: ${colVars.darkMuted || "rgba(20, 15, 10, 0.9)"};
+  --font: "${fontName || "Rubik"}", sans-serif;
+}
+body { font-family: var(--font); margin:0; padding:0; background:transparent; }
+.progress-container { display:flex; align-items:center; gap:0; width:100%; }
+.progress-container .time { font-family:"Rubik",sans-serif; font-size:0.75rem; color:var(--lightVibrant,rgba(255,255,255,0.7)); min-width:2.2rem; }
+.progress-container .time.current { text-align:right; padding-right:0.3rem; }
+.progress-container .time.total { text-align:left; opacity:0.6; padding-left:0.3rem; }
+.progress-container .progress-bar { flex:1; position:relative; background:var(--darkMuted,rgba(255,255,255,0.1)); overflow:hidden; }
+.progress-container .progress-fill { height:100%; background:linear-gradient(90deg,var(--vibrant,#B87333) 0%,var(--lightVibrant,#D4944A) 100%); transition:width 0.1s linear; }
+.progress-container .progress-glow { position:absolute; top:0; left:0; height:100%; background:var(--vibrant,#B87333); filter:blur(8px); opacity:0.4; pointer-events:none; transition:width 0.1s linear; }`;
+        let style = shadowRoot.getElementById('_unik-styles');
+        if (!style) {
+            style = document.createElement('style');
+            style.id = '_unik-styles';
+            shadowRoot.prepend(style);
+        }
+        style.textContent = cssVars;
+    }
 
-    // Send progress updates via postMessage (no iframe recreation!)
-    $: if (iframeReady && iframeEl) {
-        try {
-            iframeEl.contentWindow.postMessage(
-                {
-                    type: "unik-update",
-                    progress: $trackProgress,
-                    position: $trackPosition,
-                    duration: $trackDuration,
-                    currentTime: formatTime($trackPosition),
-                    totalTime: formatTime($trackDuration),
-                    isPlaying: $isPlaying,
-                },
-                "*",
-            );
-        } catch (e) {
-            /* iframe not ready */
+    // Update colors/font > inject into shadowRoot
+    $: if (shadowRoot) {
+        updateShadowColors(safeColors, font);
+    }
+
+    // Update progress/timeline data-bind elements inside shadowRoot (no iframe)
+    $: if (shadowRoot) {
+        const els = shadowRoot.querySelectorAll('[data-bind]');
+        for (let i = 0; i < els.length; i++) {
+            const el = els[i];
+            const bind = el.getAttribute('data-bind');
+            if (bind === 'progress-width') { el.style.width = ($trackProgress || 0) + '%'; }
+            else if (bind === 'currentTime') { el.textContent = formatTime($trackPosition); }
+            else if (bind === 'totalTime') { el.textContent = formatTime($trackDuration); }
+            else if (bind === 'position') { el.textContent = Math.floor($trackPosition || 0); }
+            else if (bind === 'duration') { el.textContent = Math.floor($trackDuration || 0); }
+            else if (bind === 'progress') { el.textContent = ($trackProgress || 0).toFixed(1); }
+            else if (bind === 'playing') { el.setAttribute('data-playing', $isPlaying ? 'true' : 'false'); }
         }
     }
 
-    // Send color updates via postMessage
-    $: if (iframeReady && iframeEl && colors) {
-        try {
-            iframeEl.contentWindow.postMessage(
-                {
-                    type: "unik-update",
-                    colors,
-                },
-                "*",
-            );
-        } catch (e) {
-            /* iframe not ready */
-        }
-    }
-
-    // Send font updates via postMessage
-    $: if (iframeReady && iframeEl && font) {
-        try {
-            iframeEl.contentWindow.postMessage(
-                {
-                    type: "unik-update",
-                    font,
-                },
-                "*",
-            );
-        } catch (e) {
-            /* iframe not ready */
-        }
-    }
-
-    // Listen for iframe ready signal
-    function onMessage(e) {
-        if (e.data && e.data.type === "unik-ready") {
-            iframeReady = true;
-            // Send initial data immediately
-            sendFullUpdate();
-        }
-    }
-
-    function sendFullUpdate() {
-        if (!iframeEl) return;
-        try {
-            iframeEl.contentWindow.postMessage(
-                {
-                    type: "unik-update",
-                    progress: $trackProgress,
-                    position: $trackPosition,
-                    duration: $trackDuration,
-                    currentTime: formatTime($trackPosition),
-                    totalTime: formatTime($trackDuration),
-                    isPlaying: $isPlaying,
-                    colors,
-                    font,
-                },
-                "*",
-            );
-        } catch (e) {
-            /* iframe not ready */
+    // Marquee via `use:marquee` on .title / .artist inside shadowRoot
+    let marqueeCleanups = [];
+    let lastMarqueeKey = '';
+    $: {
+        if (shadowRoot && trackKey !== lastMarqueeKey) {
+            lastMarqueeKey = trackKey;
+            marqueeCleanups.forEach(fn => { try { fn.destroy(); } catch(e) {} });
+            marqueeCleanups = [];
+            shadowRoot.querySelectorAll('.title, .artist').forEach(el => {
+                marqueeCleanups.push(marquee(el, { speed: 70, optGap: 69 }));
+            });
         }
     }
 
@@ -258,9 +194,11 @@
         loading = true;
         error = "";
 
+        const apiPath = isExample ? "players" : "custom-players";
+
         try {
             const res = await fetch(
-                `${getApiBase()}/api/custom-players/${playerName}`,
+                `${getApiBase()}/api/${apiPath}/${playerName}`,
             );
             if (res.ok) {
                 const text = await res.text();
@@ -282,23 +220,32 @@
         loading = false;
     }
 
-    // Reset iframe ready state when track changes (new iframe created by {#key})
-    $: if (trackKey) {
-        iframeReady = false;
+    // Render to shadow when template is ready
+    $: if (htmlTemplate && shadowHost) {
+        renderToShadow(htmlTemplate);
     }
 
     onMount(() => {
         loadTemplate();
-        window.addEventListener("message", onMessage);
-        return () => window.removeEventListener("message", onMessage);
+        window.addEventListener("unik-colors-updated", handleColorsUpdated);
+        return () => {
+            window.removeEventListener("unik-colors-updated", handleColorsUpdated);
+        };
     });
 
     $: if (playerName) {
         loadTemplate();
     }
+
+    // Reset shadowRoot when track changes (new host created by {#key})
+    $: if (trackKey) {
+        shadowRoot = null;
+    }
+
+    $: shouldShow = showAlways || $ShowTrack;
 </script>
 
-{#if visible}
+{#if shouldShow}
     {#key trackKey}
         <div
             class="custom-player-wrapper"
@@ -310,13 +257,10 @@
             {:else if error}
                 <div class="error">{error}</div>
             {:else}
-                <iframe
-                    bind:this={iframeEl}
-                    title="Custom Player: {playerName}"
-                    {srcdoc}
-                    sandbox="allow-scripts allow-same-origin"
-                    class="custom-iframe"
-                ></iframe>
+                <div
+                    bind:this={shadowHost}
+                    class="custom-player-shadow-host"
+                ></div>
             {/if}
         </div>
     {/key}
@@ -330,12 +274,13 @@
         overflow: hidden;
     }
 
-    .custom-iframe {
+    .custom-player-shadow-host {
         width: 100%;
         height: 100%;
-        border: none;
-        background: transparent;
-        display: block;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .loading,
@@ -357,3 +302,4 @@
         color: #ff6b6b;
     }
 </style>
+

@@ -84,29 +84,23 @@
     let blobs = null;
     let mx = -9999, my = -9999;
 
-    // Р‘Р°Р·РѕРІС‹Р№ HTML РґР»СЏ "start from scratch"
-    const BASE_HTML = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <style>
-    * { font-family: 'Rubik', sans-serif; }
-    html, body { margin: 0; padding: 0; background: transparent; }
-    :root {
-      --vibrant: #B87333; --lightVibrant: #D4944A;
-      --darkVibrant: #5C4033; --muted: #8B6914;
-      --lightMuted: #C8A86B; --darkMuted: rgba(20,15,10,0.9);
-    }
-  </style>
-</head>
-<body>
-  <p>{{title}}</p>
-  <p>{{artist}}</p>
-  <img src="{{thumbnail}}" alt="cover" width="100" />
-</body>
-</html>`
+    // "start from scratch"
+    const BASE_HTML = `<style>
+/*                Colors:                  */
+    var(--vibrant),      var(--muted),
+    var(--lightVibrant), var(--lightMuted),
+    var(--darkVibrant),  var(--darkMuted) 
+/*                                         */
+    * { font-family: "Rubik", sans-serif; }
+</style>
 
-    // Р’РІРѕРґ РёРјРµРЅРё РґР»СЏ РЅРѕРІРѕРіРѕ РїР»РµРµСЂР°
+<div>
+  <p class="title">{{title}}</p>
+  <p class="artist">{{artist}}</p>
+  <img src="{{thumbnail}}" alt="cover" width="100" />
+</div>`
+
+    
     let nameInput = '';
     let showNameInput = false;
 

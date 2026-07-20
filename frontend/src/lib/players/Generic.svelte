@@ -2,13 +2,16 @@
   // Метаданные плеера для auto-discovery
   export const meta = {
     name: 'Generic',
-    defaultCSS: `/* === GENERIC PLAYER === */
-/* Colors: var(--vibrant), var(--lightVibrant),
-   var(--darkVibrant), var(--muted),
-   var(--lightMuted), var(--darkMuted) */
+    defaultCSS: `
+    /* === GENERIC PLAYER === */
+/*               Colors: 
+   var(--vibrant),      var(--muted),
+   var(--lightVibrant), var(--darkVibrant),
+   var(--lightMuted),   var(--darkMuted) 
+*/
 
 .title > *, .artist > * {
-  font-family: "Rubik", sans-serif;
+  font-family: "Comfortaa", sans-serif;
 }
 
 .mainDiv {
@@ -24,20 +27,22 @@
 }
 
 .pic {
-  width: 8rem;
-  height: 8rem;
+  width: 10rem;
+  height: 10rem;
   object-fit: cover;
   border-radius: 1rem;
-  border: 0.2rem solid var(--lightMuted);
+  border: 0.2rem solid var(--vibrant);
 }
 
 .textDiv {
   display: flex;
   flex-direction: column;
   justify-content: space-around;
-  width: 20rem;
-  height: 8rem;
-  margin-left: -1rem;
+
+  width: 26rem;
+  height: 10rem;
+
+  margin:1.8rem 0 2rem -1rem;
   border-radius: 0 1rem 1rem 0;
   border: 0.2rem solid var(--vibrant);
   border-left: none;
@@ -61,11 +66,13 @@
 }
 
 .title > * {
-  font-size: 1.8rem;
+  font-size: 2rem;
+  font-weight:700
 }
 
 .artist > * {
-  font-size: 1.7rem;
+  font-size: 1.6rem;
+  font-weight:400
 }`
   };
 </script>

@@ -2,13 +2,16 @@
   // Метаданные плеера для auto-discovery
   export const meta = {
     name: 'BackPicture',
-    defaultCSS: `/* === BACKPICTURE PLAYER === */
-/* Colors: var(--vibrant), var(--lightVibrant),
-   var(--darkVibrant), var(--muted),
-   var(--lightMuted), var(--darkMuted) */
+    defaultCSS: `
+    /* === BACKPICTURE PLAYER === */
+/*               Colors: 
+   var(--vibrant),      var(--muted),
+   var(--lightVibrant), var(--darkVibrant),
+   var(--lightMuted),   var(--darkMuted) 
+*/
 
 .title > *, .artist > * {
-  font-family: "Rubik", sans-serif;
+  font-family: "Comfortaa", sans-serif;
 }
 
 .mainDiv {
@@ -75,7 +78,8 @@
 }
 
 .title > * {
-  font-size: 1.8rem;
+  font-size: 2rem;
+  font-weight:700
 }
 
 .artist {
@@ -85,6 +89,7 @@
 
 .artist > * {
   font-size: 1.6rem;
+  font-weight:300
 }`
   };
 </script>

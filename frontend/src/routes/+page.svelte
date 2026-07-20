@@ -1,5 +1,6 @@
 <script>
   import { onMount, tick } from 'svelte';
+  import { goto } from '$app/navigation';
   import { fade, fly, scale } from 'svelte/transition';
   import { getAllPlayers, getAllPlayersAsync, invalidateCustomPlayersCache, getBuiltInPlayerNames, getPlayerMeta } from '$lib/getPlayers.js';
   import PlayerCard from '$lib/components/PlayerCard.svelte';
@@ -17,6 +18,7 @@
   let showUploader = false;
   let showFilter = false;
   let sidebarOpen = true;
+  let cssReady = false;
 
   // Translations
   const t = {
@@ -37,6 +39,7 @@
       step3: 'Paste in OBS',
       step3Desc: 'Browser Source → URL',
       empty: 'NO PLAYERS',
+      danceSync: 'DANCE SYNC',
     },
     ru: {
       widgets: 'ВИДЖЕТЫ',
@@ -55,6 +58,7 @@
       step3: 'Вставь в OBS',
       step3Desc: 'Browser Source → URL',
       empty: 'НЕТ ПЛЕЕРОВ',
+      danceSync: 'синхронизация гифок',
     }
   };
 
@@ -87,8 +91,9 @@
 
   async function loadAllPlayerCSS() {
     const playerNames = getBuiltInPlayerNames();
-    let allCSS = '';
-    for (const name of playerNames) {
+
+    // Load CSS in parallel
+    const results = await Promise.allSettled(playerNames.map(async (name) => {
       try {
         let rawCSS = await loadCSSFromBackend(name);
         if (!rawCSS) {
@@ -97,18 +102,28 @@
         }
         if (rawCSS) {
           const transformed = transformCSS(rawCSS, name, '.preview-container');
-          allCSS += `/* === ${name} === */\n${transformed}\n\n`;
+          return transformed;
         }
       } catch (err) {
-        console.warn(`[CSS] Failed to load CSS for ${name}:`, err);
+        console.warn('CSS load failed for ' + name + ':', err);
       }
+      return '';
+    }));
+
+    const allCSS = results.map(r => r.status === 'fulfilled' ? r.value : '').filter(Boolean).join('\n\n');
+    if (allCSS) {
+      injectCSS(allCSS, 'unik-preview-css');
     }
-    injectCSS(allCSS, 'unik-preview-css');
   }
 
   async function loadPlayers() {
-    players = await getAllPlayersAsync();
-    loadAllPlayerCSS();
+    // Load players AND CSS in parallel, grid shows only when CSS is ready
+    const [playerList] = await Promise.all([
+      getAllPlayersAsync(),
+      loadAllPlayerCSS()
+    ]);
+    players = playerList;
+    cssReady = true;
   }
 
   async function handleCustomPlayerAdded(name) {
@@ -128,6 +143,7 @@
   const LIST_VPAD=5;
   const B1W=480, B1H=96;
   const B2W=480, B2H=72;
+  const B3W=480, B3H=72;
   const SR_W=220, SR_H=64, SR_LINE_Y=52, SR_TEXT_Y=40, SR_X0=4, N_LPT=36;
 
   class WaveBlob {
@@ -221,6 +237,7 @@
 
   const blobs1=makeBtnBlobs(B1W,B1H);
   const blobs2=makeBtnBlobs(B2W,B2H);
+  const blobs3=makeBtnBlobs(B3W,B3H);
 
   const LROWS=3;
   const LPW=Math.ceil(LW/LPS);
@@ -288,8 +305,9 @@
   let listContainer=null;
   let btn1ring=null, btn1fill=null;
   let btn2ring=null, btn2fill=null;
-  let h1=false, h2=false;
-  let p1=0, p2=0;
+  let h1=false, h2=false, h3=false;
+  let p1=0, p2=0, p3=0;
+  let btn3ring=null, btn3fill=null;
   let listMx=-999, listMy=-999;
 
   function selectSort(newIdx) {
@@ -454,6 +472,7 @@
     }
     const bo1=makeBOff(B1W,B1H);
     const bo2=makeBOff(B2W,B2H);
+    const bo3=makeBOff(B3W,B3H);
 
     function renderBtnBoth(dcRing,dcFill,blobs,off,lt,pt,reversed){
       const {PW,PH,ca,cb,cc,a}=off;
@@ -509,21 +528,24 @@
       const ctxF=dcFill.getContext('2d'); ctxF.imageSmoothingEnabled=false; ctxF.clearRect(0,0,PW,PH); ctxF.putImageData(dFill,0,0);
     }
 
-    let raf, last=0, tt=0, lt1=0, lt2=0, pt1=0, pt2=0;
+    let raf, last=0, tt=0, lt1=0, lt2=0, lt3=0, pt1=0, pt2=0, pt3=0;
 
     function render(ts){
       raf=requestAnimationFrame(render);
       if(ts-last<16) return; last=ts; tt++;
       lt1=Math.max(0,Math.min(1,lt1+(h1?0.15:-0.15)));
       lt2=Math.max(0,Math.min(1,lt2+(h2?0.15:-0.15)));
+      lt3=Math.max(0,Math.min(1,lt3+(h3?0.15:-0.15)));
       if(p1>0){pt1=p1; p1=0;}
       if(p2>0){pt2=p2; p2=0;}
       pt1=Math.max(0,pt1-0.1);
       pt2=Math.max(0,pt2-0.1);
       for(const b of blobs1) b.update(tt);
       for(const b of blobs2) b.update(tt);
+      for(const b of blobs3) b.update(tt);
       if(btn1ring&&btn1fill) renderBtnBoth(btn1ring,btn1fill,blobs1,bo1,lt1,pt1,false);
       if(btn2ring&&btn2fill) renderBtnBoth(btn2ring,btn2fill,blobs2,bo2,lt2,pt2,true);
+      if(btn3ring&&btn3fill) renderBtnBoth(btn3ring,btn3fill,blobs3,bo3,lt3,pt3,false);
       for(const b of listBlobs) b.update(tt,listMx,listMy);
       renderListBlob();
       if(srCanvas){
@@ -612,6 +634,16 @@
     <div class="sidebar-spacer"></div>
 
     <div class="btn-group">
+<!--    
+      <div id="dance-sync-btn" class="blob-btn" style="width:{B3W}px;height:{B3H}px;"
+        on:mouseenter={()=>h3=true} on:mouseleave={()=>h3=false}
+        on:click={() => goto('/dancesync')} role="button" tabindex="0"
+        on:keydown={e=>e.key==='Enter'&& goto('/dancesync')}>
+        <canvas bind:this={btn3ring} style="position:absolute;top:{-BTN_PAD}px;left:{-BTN_PAD}px;width:{B3W+BTN_PAD*2}px;height:{B3H+BTN_PAD*2}px;image-rendering:pixelated;display:block;pointer-events:none;"></canvas>
+        <canvas bind:this={btn3fill} style="position:absolute;top:{-BTN_PAD}px;left:{-BTN_PAD}px;width:{B3W+BTN_PAD*2}px;height:{B3H+BTN_PAD*2}px;image-rendering:pixelated;display:block;pointer-events:none;"></canvas>
+        <span class="btn-label" style="color:{h3?'var(--c1)':'var(--c2)'}">{texts.danceSync}</span>
+      </div>
+-->
       <div id="custom-btn" class="blob-btn" style="width:{B1W}px;height:{B1H}px;"
         on:mouseenter={()=>h1=true} on:mouseleave={()=>h1=false}
         on:click={() => showUploader = true} role="button" tabindex="0"
@@ -636,14 +668,15 @@
     <div class="bottom-bar">
       <button class="bottom-icon" on:click={toggleSidebar}>{sidebarOpen ? "\u2039" : "\u203A"}</button>
       <div class="bottom-right">
-        <a href="/howToMake" class="bottom-link">{texts.docs}</a>
+        <a href="/wiki" class="bottom-link">{texts.docs}</a>
         <button class="lang-btn" on:click={toggleLanguage}>{$language === 'ru' ? 'EN' : 'RU'}</button>
       </div>
     </div>
   </aside>
 
   <main class="main">
-    <div class="players-grid">
+  {#if cssReady}
+    <div class="players-grid" in:fade={{ delay: 0, speed:300}}>
       {#if filteredPlayers.length === 0 && players.length > 0}
         <div class="empty">
         <div class="empty-icon"></div>
@@ -651,10 +684,11 @@
         </div>
       {:else}
         {#each filteredPlayers as player}
-          <PlayerCard
+          <PlayerCard 
             component={player.component}
             name={player.name}
             isCustom={player.isCustom || false}
+            isExample={player.isExample || false}
             error={player.error || null}
           />
         {/each}
@@ -666,6 +700,7 @@
       <a href="https://www.donationalerts.com/r/unikn0w" target="_blank" rel="noopener" class="footer-btn-donate">DONATE</a>
       <span class="footer-text">v0.7</span>
     </footer>
+  {/if}
   </main>
 
 </div>
@@ -859,5 +894,4 @@
     color: color-mix(in srgb,var(--c2) 25%,transparent);
     letter-spacing: 0.1em;
   }
-
 </style>

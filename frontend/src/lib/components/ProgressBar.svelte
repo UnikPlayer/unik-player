@@ -47,26 +47,29 @@
   .progress-container {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0rem;
     width: 100%;
   }
 
   .time {
     font-family: 'Rubik', sans-serif;
-    font-size: 0.75rem;
+    font-size: 1rem;
     color: var(--lightVibrant, rgba(255, 255, 255, 0.7));
-    min-width: 3.5rem;
+    min-width: 0rem;
     text-shadow: 0 0 10px var(--vibrant, rgba(184, 115, 51, 0.3));
   }
 
   .time.current {
     text-align: right;
+    padding-right:0.3rem
   }
 
   .time.total {
     text-align: left;
     opacity: 0.6;
+    padding-left:0.3rem
   }
+
 
   .progress-bar {
     flex: 1;

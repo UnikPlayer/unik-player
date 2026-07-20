@@ -38,12 +38,9 @@
     import { startGuide } from '$lib/stores/guideState';
     import GuideOverlay from './GuideOverlay.svelte';
 
-    // Backend API base URL - for dev mode
+    // Backend API base URL
     const isBrowser = typeof window !== "undefined";
-    const API_BASE =
-        isBrowser && window.location.port === "5173"
-            ? "http://localhost:5173"
-            : "";
+    const API_BASE = isBrowser ? `${window.location.protocol}//${window.location.host}` : "";
 
     let playerComponent = null;
     let playerName = "";
@@ -587,12 +584,35 @@
     }
 
     // Generate inline style for preview
-    // For dynamic mode: don't set colors, inherit from :root (set by Vibrant.js)
+    // For dynamic mode: read CSS vars from :root (set by Vibrant.js) or use defaults
     // For static mode: generate colors from selected color
-    $: previewColors =
-        localColorMode === "static"
-            ? generateColorVars(localStaticColor)
-            : null;
+    function getRootColors() {
+        if (typeof document === 'undefined') return null;
+        const style = getComputedStyle(document.documentElement);
+        const vibrant = style.getPropertyValue('--vibrant').trim();
+        if (!vibrant || vibrant === '#D4944A') return null;
+        return {
+            vibrant,
+            lightVibrant: style.getPropertyValue('--lightVibrant').trim() || '#F5DEB3',
+            darkVibrant: style.getPropertyValue('--darkVibrant').trim() || '#5C4033',
+            muted: style.getPropertyValue('--muted').trim() || '#8B6914',
+            lightMuted: style.getPropertyValue('--lightMuted').trim() || '#B87333',
+            darkMuted: style.getPropertyValue('--darkMuted').trim() || 'rgba(20, 15, 10, 0.9)',
+        };
+    }
+
+    // Track change forces re-read of :root CSS vars (Vibrant updates them on new track)
+    $: previewColors = computePreviewColors(localColorMode, localStaticColor, $trackTitle, colorsVersion);
+    let colorsVersion = 0;
+
+    function handleColorsUpdated() {
+        colorsVersion++;
+    }
+
+    function computePreviewColors(mode, staticCol, _trackDep, _ver) {
+        if (mode === "static") return generateColorVars(staticCol);
+        return getRootColors(); // null = no vibrant colors → sendColorsAndFont uses warm defaults
+    }
 
     $: previewStyle = previewColors
         ? `
@@ -626,12 +646,12 @@
         if (!editorIframeEl || !isCustomPlayer) return;
         try {
             const colors = previewColors || {
-                vibrant: "#555555",
-                lightVibrant: "#cccccc",
-                darkVibrant: "#222222",
-                muted: "#888888",
-                lightMuted: "#aaaaaa",
-                darkMuted: "rgba(10, 10, 10, 0.9)",
+                vibrant: "#D4944A",
+                lightVibrant: "#F5DEB3",
+                darkVibrant: "#5C4033",
+                muted: "#8B6914",
+                lightMuted: "#B87333",
+                darkMuted: "rgba(20, 15, 10, 0.9)",
             };
             editorIframeEl.contentWindow.postMessage(
                 { type: "unik-update", colors, font: localFont },
@@ -642,7 +662,7 @@
         }
     }
 
-    $: if (localColorMode || localStaticColor) sendColorsAndFont();
+    $: if (localColorMode || localStaticColor || previewColors) sendColorsAndFont();
     $: if (localFont) sendColorsAndFont();
 
     // Send live progress updates to editor iframe via postMessage
@@ -739,12 +759,12 @@ window.addEventListener('message', function(e) {
 
         // Generate color CSS
         const colorVars = colors || {
-            vibrant: "#555555",
-            lightVibrant: "#cccccc",
-            darkVibrant: "#222222",
-            muted: "#888888",
-            lightMuted: "#aaaaaa",
-            darkMuted: "rgba(10, 10, 10, 0.9)",
+            vibrant: "#D4944A",
+            lightVibrant: "#F5DEB3",
+            darkVibrant: "#5C4033",
+            muted: "#8B6914",
+            lightMuted: "#B87333",
+            darkMuted: "rgba(20, 15, 10, 0.9)",
         };
 
         const fontCSS = fontFamily
@@ -794,6 +814,15 @@ window.addEventListener('message', function(e) {
     const _edOff1 = typeof document !== 'undefined' ? document.createElement('canvas') : null;
     const _edOff2 = typeof document !== 'undefined' ? document.createElement('canvas') : null;
     const _edOff3 = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+
+    function handleColorEvent() {
+        colorsVersion++;
+    }
+
+    onMount(() => {
+        window.addEventListener("unik-colors-updated", handleColorEvent);
+        return () => window.removeEventListener("unik-colors-updated", handleColorEvent);
+    }); // separate mount handler for color updates
 
     onMount(() => {
         const cs = getComputedStyle(document.documentElement);

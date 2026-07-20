@@ -2,13 +2,17 @@
   // Метаданные плеера для auto-discovery
   export const meta = {
     name: 'BigHead',
-    defaultCSS: `/* === BIGHEAD PLAYER === */
-/* Colors: var(--vibrant), var(--lightVibrant),
-   var(--darkVibrant), var(--muted),
-   var(--lightMuted), var(--darkMuted) */
+    defaultCSS: `
+    
+       /* === BIGHEAD PLAYER === */
+/*               Colors: 
+   var(--vibrant),      var(--muted),
+   var(--lightVibrant), var(--darkVibrant),
+   var(--lightMuted),   var(--darkMuted) 
+*/
 
 .title > *, .artist > * {
-  font-family: "Rubik", sans-serif;
+  font-family: "Comfortaa", sans-serif;
 }
 
 .mainDiv {
@@ -22,8 +26,8 @@
   height: 9.5rem;
   flex: 0 0 9.5rem;
   overflow: hidden;
-  border: 0.2rem solid var(--lightMuted);
-  border-radius: 1rem;
+  border: 0.2rem solid var(--vibrant);
+  border-radius: 0.5rem;
   z-index: 2;
 }
 
@@ -37,12 +41,12 @@
   display: flex;
   flex-direction: column;
   justify-content: space-around;
-  width: 20rem;
+  width: 22rem;
   height: 6.5rem;
-  padding: 0.8rem 1rem;
-  background: var(--darkMuted);
-  border-radius: 0 1rem 1rem 0;
-  border: 0.2rem solid var(--vibrant);
+  padding: 0.8rem 0rem;
+  background: var(--darkVibrant);
+  border: 0.15rem solid rgb(from var(--vibrant) r g b / 0.5);
+  border-radius: 0rem 0.5rem 0.5rem 0;
   border-left: none;
   margin-left: -0.2rem;
   z-index: 1;
@@ -64,11 +68,13 @@
 }
 
 .title > * {
-  font-size: 1.8rem;
+  font-size: 2rem;
+  font-weight:700
 }
 
 .artist > * {
-  font-size: 1.3rem;
+  font-size: 1.6rem;
+  font-weight:400
 }`
   };
 </script>

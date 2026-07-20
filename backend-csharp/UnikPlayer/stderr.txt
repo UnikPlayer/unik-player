@@ -1,0 +1,6 @@
+Unhandled exception. System.TypeLoadException: Could not load type 'System.Private.Windows.Core.OsVersion' from assembly 'System.Private.Windows.Core, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.
+   at Windows.Win32.PInvoke.GetThreadDpiAwarenessContextInternal()
+   at System.Windows.Forms.NativeWindow..ctor()
+   at System.Windows.Forms.NotifyIcon..ctor()
+   at UnikPlayer.Program.SetupTrayIcon() in C:\Users\000-d\Desktop\JShit\.Unik player reps\unikPlayer\backend-csharp\UnikPlayer\Program.cs:line 578
+   at UnikPlayer.Program.Main(String[] args) in C:\Users\000-d\Desktop\JShit\.Unik player reps\unikPlayer\backend-csharp\UnikPlayer\Program.cs:line 484

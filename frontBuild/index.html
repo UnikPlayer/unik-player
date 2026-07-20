@@ -15,32 +15,35 @@
         />
 
         
-		<link rel="modulepreload" href="/_app/immutable/entry/start.Dl9YRNTY.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/D7cAEnu7.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/TX8zAAQ0.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/AvZTHUdx.js">
-		<link rel="modulepreload" href="/_app/immutable/entry/app.zf5GqRm_.js">
+		<link rel="modulepreload" href="/_app/immutable/entry/start.CYjMZAgZ.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/mEMXxFru.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/DRQ7dI_F.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/Dslb55XM.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/FlGcsQG7.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/C8Qr91XH.js">
+		<link rel="modulepreload" href="/_app/immutable/entry/app.Bf_To0p0.js">
 		<link rel="modulepreload" href="/_app/immutable/chunks/PPVm8Dsz.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/B1hKMo5D.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/CfYjw1yX.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/DHgh9R-P.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/CSyGy04h.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/BVdQUZDh.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/BXFCOYAQ.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/C9xOkvKo.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/C6U9BjRo.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/4lQBbXTU.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/BUEANPyL.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/BRVbvoHb.js">
     </head>
 
     <body data-sveltekit-preload-data="hover">
         <div>
 			<script>
 				{
-					__sveltekit_10d8eu7 = {
+					__sveltekit_18bg249 = {
 						base: ""
 					};
 
 					const element = document.currentScript.parentElement;
 
 					Promise.all([
-						import("/_app/immutable/entry/start.Dl9YRNTY.js"),
-						import("/_app/immutable/entry/app.zf5GqRm_.js")
+						import("/_app/immutable/entry/start.CYjMZAgZ.js"),
+						import("/_app/immutable/entry/app.Bf_To0p0.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element);
 					});
@@ -74,6 +77,30 @@
             font-display: swap;
         }
 
+        @font-face {
+            font-family: "Comfortaa";
+            src: url("/fonts/Comfortaa-VariableFont_wght.ttf") format("truetype");
+            font-weight: 300 700;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'minecraft';
+            src: url("/fonts/minecraft.ttf") format("truetype");
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: "Unbounded";
+            src: url("/fonts/Unbounded-VariableFont_wght.ttf") format("truetype");
+            font-weight: 200 900;
+            font-style: normal;
+            font-display: swap;
+        }
+
         :root {
             /* === FONTS === */
             --font-ui: '8bitwonder', monospace;
@@ -94,27 +121,6 @@
             --c-text: #111111;
             --c-text-muted: rgba(0,0,0,0.25);
             --c-backdrop: rgba(0,0,0,0.65);
-
-            /* === Legacy site colors (for player widgets compatibility) === */
-            --site-background: #000000;
-            --site-accent: #b87333;
-            --site-accent-rgb: 184, 115, 51;
-            --site-accent-light: #d4944a;
-            --site-accent-dark: #8b5a2b;
-            --site-text: #f1ffe7;
-            --site-text-muted: rgba(255, 255, 255, 0.5);
-            --site-border: rgba(255, 255, 255, 0.1);
-            --site-border-subtle: rgba(255, 255, 255, 0.05);
-            --site-glass: rgba(255, 255, 255, 0.05);
-            --site-error: #ef4444;
-            --site-error-rgb: 239, 68, 68;
-
-            /* Legacy */
-            --background: #000000;
-            --foreground: #6290c3;
-            --foreground2: #c2e7da;
-            --special: #f1ffe7;
-            --special2: #baff29;
 
             /* === PLAYER COLORS (dynamic, Vibrant.js will override) === */
             --vibrant: #555555;

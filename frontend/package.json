@@ -2,12 +2,13 @@
 	"name": "unikplayer",
 	"version": "0.0.1",
 	"scripts": {
-  		"dev": "vite dev",
-  		"build": "vite build",
-  		"preview": "vite preview",
-  		"prepare": "svelte-kit sync || echo ''",
-  		"prepack": "svelte-kit sync && svelte-package -t false && publint",
-  		"sync": "publint"
+		"dev": "vite dev",
+		"prebuild": "node -e \"const fs=require('fs'),p=require('path').resolve(__dirname,'../frontBuild');if(fs.existsSync(p))fs.rmSync(p,{recursive:true,force:true});console.log('cleaned frontBuild')\"",
+		"build": "vite build",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"prepack": "svelte-kit sync && svelte-package -t false && publint",
+		"sync": "publint"
 	},
 	"files": [
 		"dist",
@@ -46,6 +47,9 @@
 	],
 	"dependencies": {
 		"@coooookies/windows-smtc-monitor": "^1.0.12",
+		"@ffmpeg/core": "^0.12.6",
+		"@ffmpeg/ffmpeg": "^0.12.15",
+		"@ffmpeg/util": "^0.12.2",
 		"flowbite-svelte": "^1.10.13",
 		"lucide-svelte": "^0.526.0",
 		"node-vibrant": "^4.0.3"

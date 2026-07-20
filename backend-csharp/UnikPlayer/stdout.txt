@@ -1,0 +1,23 @@
+[INFO] Session started
+[Config] Loading .env from: C:\Users\000-d\Desktop\JShit\.Unik player reps\unikPlayer\backend-csharp\UnikPlayer\.env
+[Config] PRODUCTION MODE - Data directory: C:\Users\000-d\AppData\Local\UnikPlayer
+[Config] Loading .env from: C:\Users\000-d\Desktop\JShit\.Unik player reps\unikPlayer\backend-csharp\UnikPlayer\.env
+[Examples] Found examples directory: C:\Users\000-d\Desktop\JShit\.Unik player reps\unikPlayer\frontend\static\examples
+[Examples] Refreshed 0 backup(s), created 0 new player(s) from C:\Users\000-d\Desktop\JShit\.Unik player reps\unikPlayer\frontend\static\examples
+[Config] NO_FRONTEND - ������ �� ����� �������� ����� (������ API)
+UnikPlayer �����������...
+[INFO] Backend state: Starting
+[INIT] File logging enabled -> C:\Users\000-d\AppData\Local\UnikPlayer\logs\app-*.log
+[WS] WebSocket ������ �� 0.0.0.0:62727
+[HTTP] ������ bind �� 0.0.0.0:27272
+[HTTP] ������ �� 0.0.0.0:27272
+[HTTP] NO_FRONTEND ������� � ������� �� �������, ������ API
+[WS] Proxy 0.0.0.0:62727 -> localhost:62728
+[SMTC] Status != Playing (Paused), ����������
+[SMTC] NEW: Pilotredsky - Pilotredsky - Fleece Snowkbs (duration: 309s)
+[SMTC] Timeline: 0s / 309s (duration changed)
+SMTC ��������� �������
+HTTP ������: http://localhost:27272/
+WebSocket ������: ws://localhost:62727/
+Logs: C:\Users\000-d\AppData\Local\UnikPlayer\logs/app-*.log
+UnikPlayer ��������.

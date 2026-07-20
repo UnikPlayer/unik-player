@@ -108,7 +108,7 @@
       "ttsFile": "12.wav",
       "handType": "pick",
       "handImage": "picker.png",
-      "targetElement": ".btn-group .blob-btn",
+      "targetElement": "#custom-btn",
       "closeEditor": true
     },
     {

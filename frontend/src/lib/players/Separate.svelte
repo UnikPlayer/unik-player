@@ -2,10 +2,13 @@
     // Метаданные плеера для auto-discovery
     export const meta = {
         name: "Separate",
-        defaultCSS: `/* === SEPARATE PLAYER === */
-/* Colors: var(--vibrant), var(--lightVibrant),
-   var(--darkVibrant), var(--muted),
-   var(--lightMuted), var(--darkMuted) */
+        defaultCSS: `
+        /* === SEPARATE PLAYER === */
+/*               Colors: 
+   var(--vibrant),      var(--muted),
+   var(--lightVibrant), var(--darkVibrant),
+   var(--lightMuted),   var(--darkMuted) 
+*/
 
 .title > *, .artist > * {
   font-family: "Rubik", sans-serif;
@@ -19,8 +22,8 @@
 
 .pic {
   display: block;
-  border-radius: 1rem;
-  border: 0.2rem solid var(--lightMuted);
+  border-radius: 0.45rem;
+  border: 0.15rem solid var(--muted);
   width: 10rem;
   height: 10rem;
   object-fit: cover;
@@ -39,9 +42,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.8rem;
-  border: 0.2rem solid var(--vibrant);
-  background-color: var(--darkMuted);
+  border-radius: 0.45rem;
+  border: 0.15rem solid var(--muted);
+  background-color: var(--darkVibrant);
   flex: 4;
   padding: 0.8rem 0rem;
 }
@@ -50,11 +53,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.8rem;
-  border: 0.2rem solid var(--vibrant);
-  background-color: var(--darkMuted);
+  border-radius: 0.45rem;
+  border: 0.15rem solid var(--muted);
+  background-color: var(--darkVibrant);
   flex: 2;
-  padding: 0.6rem 1rem;
+  padding: 0.6rem 0rem;
 }
 
 .title, .artist {
@@ -66,14 +69,17 @@
   color: var(--lightVibrant);
   margin: 0;
   line-height: 1.2;
+  width:100%;
 }
 
 .title > * {
-  font-size: 1.8rem;
+  font-size: 2rem;
+  font-weight:700
 }
 
 .artist > * {
-  font-size: 1.3rem;
+  font-size: 1.6rem;
+  font-weight:400;
 }`,
     };
 </script>

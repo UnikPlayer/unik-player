@@ -18,6 +18,7 @@
     export let component;
     export let name;
     export let isCustom = false;
+    export let isExample = false;
     export let error = null;
 
     $: savedStyle = $playerStyles[name] || {};
@@ -122,9 +123,6 @@
 
     onMount(async () => {
         await tick();
-        if (document.fonts && document.fonts.ready) {
-            await document.fonts.ready;
-        }
         if (_destroyed) return;
 
         _ro = new ResizeObserver(entries => {
@@ -236,6 +234,9 @@
             ctx.drawImage(off2,0,0);
         }
 
+        // Draw first frame SYNCHRONOUSLY before waiting for fonts
+        render();
+
         _onMM = function(e) {
             const r = cloudCv.getBoundingClientRect();
             if (r.width < 1) return;
@@ -245,6 +246,12 @@
         _onML = function() { mx=-999; my=-999; };
         cardEl.addEventListener('mousemove', _onMM);
         cardEl.addEventListener('mouseleave', _onML);
+
+        // Now wait for fonts and start animation loop
+        if (document.fonts && document.fonts.ready) {
+            await document.fonts.ready;
+        }
+        if (_destroyed) return;
 
         let last=0;
 
@@ -266,20 +273,23 @@
             <span class="card-name">{name.replace(/([A-Z])/g, "_$1").toUpperCase()}</span>
             {#if isCustom}
                 <span class="custom-badge">CUSTOM</span>
+            {:else if isExample}
+                <span class="custom-badge">EXAMPLE</span>
             {/if}
         </div>
         <div class="card-preview">
             <div class="preview-container" style={previewStyle}>
-                {#if isCustom}
+                {#if isCustom || isExample}
                     <svelte:component
                         this={component}
                         playerName={name}
                         title={$trackTitle || "Track Title"}
                         artist={$trackArtist || "Artist Name"}
                         thumbnail={$trackThumbnail || "/thumbnail.jpg"}
-                        colors={colors || {}}
+                        colors={colors}
                         font={fontFamily}
-                        visible={true}
+                        showAlways={true}
+                        isExample={isExample}
                     />
                 {:else}
                     <svelte:component

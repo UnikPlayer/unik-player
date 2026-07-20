@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            * {
+                font-family:
+                    "Rubik",
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    sans-serif;
+                box-sizing: border-box;
+            }
+
+            html,
+            body {
+                margin: 0;
+                padding: 0;
+                background: transparent;
+            }
+            :root {
+                --vibrant: #b87333;
+                --lightVibrant: #d4944a;
+                --darkVibrant: #5c4033;
+                --muted: #8b6914;
+                --lightMuted: #c8a86b;
+                --darkMuted: rgba(20, 15, 10, 0.95);
+            }
+            .window {
+                width: 340px;
+                height: 116px;
+                background: #1c1c1b;
+                -webkit-backdrop-filter: blur(20px);
+                backdrop-filter: blur(20px);
+                border-radius: 12px;
+                border: 1px solid var(--darkVibrant);
+                box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+            .title-bar {
+                height: 26px;
+                background: #3e3e3c;
+                display: flex;
+                align-items: center;
+                padding: 12px 12px;
+            }
+            .traffic-lights {
+                display: flex;
+                gap: 8px;
+            }
+            .traffic-light {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+            }
+            .traffic-light.red {
+                background: #ff5f57;
+            }
+            .traffic-light.yellow {
+                background: #ffbd2e;
+            }
+            .traffic-light.green {
+                background: #28c840;
+            }
+            .title-text {
+                flex: 1;
+                text-align: right;
+                font-size: 11px;
+                color: var(--lightMuted);
+                letter-spacing: 0.5px;
+                font-weight: 500;
+            }
+            .content {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                padding: 5px 5px;
+                gap: 16px;
+            }
+            .text-area {
+                flex: 1;
+                min-width: 0;
+            }
+            .title {
+                font-size: 18px;
+                font-weight: 600;
+                color: var(--lightVibrant);
+                margin: 0 0 6px 0;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                line-height: 1.2;
+            }
+            .artist {
+                font-size: 14px;
+                color: var(--lightMuted);
+                margin: 0;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                line-height: 1.2;
+            }
+            .cover {
+                width: 78px;
+                height: 78px;
+                border-radius: 8px;
+                object-fit: cover;
+                box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35);
+                flex-shrink: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="window">
+            <div class="title-bar">
+                <div class="traffic-lights">
+                    <div class="traffic-light red"></div>
+                    <div class="traffic-light yellow"></div>
+                    <div class="traffic-light green"></div>
+                </div>
+                <div class="title-text">Now Playing</div>
+            </div>
+
+            <div class="content">
+                <div class="text-area">
+                    <p class="title">{{title}}</p>
+                    <p class="artist">{{artist}}</p>
+                </div>
+                <img src="{{thumbnail}}" alt="cover" class="cover" />
+            </div>
+        </div>
+    </body>
+</html>

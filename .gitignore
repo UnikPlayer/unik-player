@@ -37,3 +37,4 @@ tmpclaude-*
 
 # Dev data (keep css templates)
 dev-data/player-styles.json
+dev-for-ai.md

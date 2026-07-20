@@ -151,14 +151,16 @@ unikPlayer/
       Logger.cs
       UnikPlayer.csproj
       .env
+      players/              -- встроенные HTML-плееры (копируются в frontBuild/)
   frontend/                 -- SvelteKit фронтенд
     src/
       lib/
         components/         -- Svelte компоненты
-        players/            -- компоненты плееров
+        players/            -- Svelte-компоненты плееров
         stores/             -- Svelte stores
       routes/               -- страницы
     static/                 -- статические ассеты
+      examples/             -- исходники встроенных плееров (dev mode)
       guide.json            -- шаги интерактивного гайда
       hands/                -- изображения рук для гайда
       tts/                  -- аудиофайлы для гайда
@@ -169,6 +171,39 @@ unikPlayer/
       icon.ico
       icon_update.ico       -- иконка для трея при доступном обновлении
 ```
+
+### Встроенные HTML-плееры (`players/`)
+
+Чтобы добавить новый дизайн плеера как встроенный (не custom):
+
+1. Положи `.html` файл в `backend-csharp/UnikPlayer/players/`
+2. Собери проект — файл попадёт в `.exe`
+3. При запуске бэкенд копирует его в `frontBuild/players/`
+4. Плеер появляется в списке наравне со встроенными Svelte-плеерами (без метки CUSTOM, без кнопок Edit/Delete)
+
+Пример HTML-шаблона:
+```html
+<!doctype html>
+<style>
+  body { background: transparent; }
+  .player {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--lightVibrant);
+    font-family: inherit;
+  }
+  img { width: 80px; height: 80px; border-radius: 8px; object-fit: cover; }
+</style>
+<div class="player">
+  <img src="{{thumbnail}}" alt="">
+  <div>
+    <div style="font-size: 18px;">{{title}}</div>
+    <div style="font-size: 14px;">{{artist}}</div>
+  </div>
+</div>
+```
+
+Доступные переменные: `{{title}}`, `{{artist}}`, `{{thumbnail}}`.  
+CSS-переменные: `--vibrant`, `--lightVibrant`, `--darkVibrant`, `--muted`, `--lightMuted`, `--darkMuted`.
 
 ## Технологии
 

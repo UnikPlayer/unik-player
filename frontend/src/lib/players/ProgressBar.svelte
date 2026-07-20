@@ -3,12 +3,14 @@
         name: "ProgressBar",
         defaultCSS: `
         /* === PROGRESSBAR PLAYER === */
-/* Colors: var(--vibrant), var(--lightVibrant),
-           var(--darkVibrant), var(--muted),
-           var(--lightMuted), var(--darkMuted) */
+/*               Colors: 
+   var(--vibrant),      var(--muted),
+   var(--lightVibrant), var(--darkVibrant),
+   var(--lightMuted),   var(--darkMuted) 
+*/
 
 .title > *, .artist > * {
-  font-family: "Rubik", sans-serif;
+  font-family: "Unbounded", sans-serif;
 }
 
 .mainDiv {
@@ -16,19 +18,20 @@
   align-items: center;
   gap: 0.6rem;
   padding: 0.5rem;
-  background: var(--darkMuted);
+  background: var(--darkVibrant);
   border: 0.12rem solid var(--vibrant);
   border-radius: 0.5rem;
-  width: 15rem;
+  width: 20rem;
+  height:6rem;
   box-sizing: border-box;
 }
 
 .pic {
-  width: 3rem;
-  height: 3rem;
+  width: 5rem;
+  height: 5rem;
   object-fit: cover;
   border-radius: 0.35rem;
-  border: 0.1rem solid var(--lightMuted);
+  border: 0.1rem solid var(--vibrant);
   flex-shrink: 0;
 }
 
@@ -52,13 +55,13 @@
 }
 
 .title > * {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.6rem;
+  font-weight: 700;
 }
 
 .artist > * {
-  font-size: 0.75rem;
-  opacity: 0.6;
+  font-size: 1.3rem;
+  font-weight:300;
 }`,
     };
 </script>
