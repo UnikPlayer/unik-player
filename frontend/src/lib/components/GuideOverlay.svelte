@@ -272,7 +272,7 @@
         position: absolute;
         bottom: 2%;
         z-index: 20001;
-        background: rgba(255,255,255,0.15);
+        background: rgba(0,0,0,0.5);
         border: 2px solid rgba(255,255,255,0.3);
         color: white;
         width: 44px; height: 44px;
@@ -286,8 +286,9 @@
         pointer-events: auto;
     }
     .guide-nav:hover {
-        background: rgba(255,255,255,0.3);
+        background: rgba(0,0,0,0.7);
         transform: scale(1.1);
+        font-size:22px;
     }
     .guide-nav-prev { left: calc(50% - 60px); }
     .guide-nav-next { left: calc(50% + 16px); }

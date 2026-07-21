@@ -127,13 +127,13 @@
 </svelte:head>
 
 <div class="player-page">
-    {#each pickedPlayer as { component, name, isCustom }}
+    {#each pickedPlayer as { component, name, isCustom, isExample }}
         <div
             id="unik-player"
             class="player-container player-{name}"
             style={inlineStyle}
         >
-            {#if isCustom}
+            {#if isCustom || isExample}
                 <svelte:component
                     this={component}
                     playerName={name}

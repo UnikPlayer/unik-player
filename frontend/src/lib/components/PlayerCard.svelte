@@ -12,7 +12,7 @@
         thumbnail as trackThumbnail,
     } from "$lib/stores/stores.js";
     import { copyPlayerStyle } from "$lib/playerButtons.js";
-    import { deleteCustomPlayer, getPlayerMeta } from "$lib/getPlayers.js";
+    import { deleteCustomPlayer } from "$lib/getPlayers.js";
     import { generateColorVars } from "$lib/utils/colors.js";
 
     export let component;
@@ -26,12 +26,48 @@
     $: staticColorValue = savedStyle.staticColor || "#B87333";
     $: colors = useStaticColor ? generateColorVars(staticColorValue) : null;
     $: fontFamily = savedStyle.font || "Rubik";
-    $: previewScale =
-        savedStyle.previewScale ?? getPlayerMeta(name)?.defaultScale ?? 0.5;
 
+    let previewWrapper = null;
+    let autoScale = 1;
     let cardWidth = 450;
-    $: scaleFactor = cardWidth / 450;
-    $: effectiveScale = previewScale * scaleFactor;
+    let ro = null;
+    let naturalW = 0;
+    let naturalH = 0;
+
+    function recalcScale() {
+        if (!previewWrapper || !cardEl) return;
+        const cardRect = cardEl.getBoundingClientRect();
+        if (cardRect.width === 0 || cardRect.height === 0) {
+            requestAnimationFrame(recalcScale);
+            return;
+        }
+
+        // Measure natural size on first run
+        if (naturalW === 0 || naturalH === 0) {
+            const player = previewWrapper.firstElementChild;
+            if (!player) { requestAnimationFrame(recalcScale); return; }
+            const r = player.getBoundingClientRect();
+            if (r.width === 0 || r.height === 0) { requestAnimationFrame(recalcScale); return; }
+            naturalW = r.width;
+            naturalH = r.height;
+        }
+
+        const targetW = cardRect.width * 0.6;
+        const targetH = cardRect.height * 0.6;
+        autoScale = Math.min(targetW / naturalW, targetH / naturalH);
+    }
+
+    onMount(() => {
+        tick().then(recalcScale);
+        ro = new ResizeObserver(recalcScale);
+        if (cardEl) ro.observe(cardEl);
+        return () => { if (ro) ro.disconnect(); };
+    });
+
+    $: if (cardEl) {
+        tick().then(recalcScale);
+        if (ro) { ro.disconnect(); ro.observe(cardEl); }
+    }
 
     $: previewStyle =
         useStaticColor && colors
@@ -43,9 +79,9 @@
     --lightMuted: ${colors.lightMuted};
     --darkMuted: ${colors.darkMuted};
     font-family: "${fontFamily}", sans-serif;
-    transform: translate(-50%, -50%) scale(${effectiveScale});
+    transform: translate(-50%, -50%) scale(${autoScale});
   `
-            : `font-family: "${fontFamily}", sans-serif; transform: translate(-50%, -50%) scale(${effectiveScale});`;
+            : `font-family: "${fontFamily}", sans-serif; transform: translate(-50%, -50%) scale(${autoScale});`;
 
     function openEditor() {
         editingPlayer.set(name);
@@ -270,15 +306,13 @@
     <canvas bind:this={cloudCv} class="cloud-cv"></canvas>
     <div class="card-inner">
         <div class="card-top">
-            <span class="card-name">{name.replace(/([A-Z])/g, "_$1").toUpperCase()}</span>
+            <span class="card-name">{name}</span>
             {#if isCustom}
                 <span class="custom-badge">CUSTOM</span>
-            {:else if isExample}
-                <span class="custom-badge">EXAMPLE</span>
             {/if}
         </div>
-        <div class="card-preview">
-            <div class="preview-container" style={previewStyle}>
+            <div class="card-preview">
+                <div class="preview-container" bind:this={previewWrapper} style={previewStyle}>
                 {#if isCustom || isExample}
                     <svelte:component
                         this={component}
@@ -372,6 +406,7 @@
         top: 50%;
         left: 50%;
         transform-origin: center center;
+        background: #000;
     }
     .preview-container :global(> *) {
         position: absolute;

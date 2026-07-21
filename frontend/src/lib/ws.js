@@ -17,7 +17,7 @@ let Vibrant = null;
 
 let mediaData = null;
 let ws;
-let reconnectTimeout = 1000;
+let reconnectTimeout = 500;
 let currentBlobUrl = null;
 let currentBlob = null;
 let isConnected = false;
@@ -99,7 +99,7 @@ function thumbnailHash(data) {
 }
 
 // Update timeline data from backend
-// Р’СЃСЏ Р»РѕРіРёРєР° РїРѕР·РёС†РёРё РІ Р±СЌРєРµРЅРґРµ вЂ” С„СЂРѕРЅС‚РµРЅРґ РїСЂРѕСЃС‚Рѕ РѕС‚РѕР±СЂР°Р¶Р°РµС‚
+// Вся логика позиции в бэкенде — фронтенд просто отображает
 function updateTimeline(timeline, playback) {
   if (!timeline) {
     trackDuration.set(0);
@@ -137,19 +137,7 @@ export async function connect() {
     return;
   }
 
-  // Dynamically import Vibrant (browser-only)
-  if (!Vibrant) {
-    try {
-      const module = await import("node-vibrant/browser");
-      Vibrant = module.Vibrant;
-      console.log("[WS] Vibrant loaded");
-    } catch (e) {
-      console.error("[WS] Failed to load Vibrant:", e);
-    }
-  }
-
-  // Connect directly to the backend WebSocket server (port 62727)
-  // In dev, Vite proxies /ws but direct connection also works
+  // Connect to backend WebSocket server FIRST, then load Vibrant in parallel
   const url = `ws://127.0.0.1:62727/ws`;
   console.log("[WS] Connecting to", url);
 
@@ -161,10 +149,20 @@ export async function connect() {
     return;
   }
 
+  // Load Vibrant in background (don't block connection)
+  if (!Vibrant) {
+    import("node-vibrant/browser").then(module => {
+      Vibrant = module.Vibrant;
+      console.log("[WS] Vibrant loaded");
+    }).catch(e => {
+      console.error("[WS] Failed to load Vibrant:", e);
+    });
+  }
+
   ws.onopen = () => {
     console.log("[WS] Connected successfully!");
     isConnected = true;
-    reconnectTimeout = 1000;
+    reconnectTimeout = 500;
     lastMessageTime = Date.now();
 
     // Start health check
@@ -203,14 +201,14 @@ export async function connect() {
         );
       }
 
-      // РџСЂРѕРІРµСЂСЏРµРј С‡С‚Рѕ media СЃСѓС‰РµСЃС‚РІСѓРµС‚ (title/artist РјРѕРіСѓС‚ Р±С‹С‚СЊ РїСѓСЃС‚С‹РјРё СЃС‚СЂРѕРєР°РјРё)
+      // Проверяем что media существует (title/artist могут быть пустыми строками)
       if (
         mediaData &&
         mediaData.media &&
         (mediaData.media.title !== undefined ||
           mediaData.media.artist !== undefined)
       ) {
-        // New media arrived вЂ” cancel any pending hide
+        // New media arrived — cancel any pending hide
         if (hideTimeout) {
           clearTimeout(hideTimeout);
           hideTimeout = null;
@@ -220,7 +218,7 @@ export async function connect() {
         const newArtist = mediaData.media.artist || "Unknown";
         const thumbnailObj = mediaData.media.thumbnail;
 
-        // base64 РјРѕР¶РµС‚ Р±С‹С‚СЊ СЃС‚СЂРѕРєРѕР№, РјР°СЃСЃРёРІРѕРј Р±Р°Р№С‚РѕРІ, РёР»Рё null
+        // base64 может быть строкой, массивом байтов, или null
         const base64 = thumbnailObj?.data || null;
 
         // Check if ANYTHING changed - compare with cached values
@@ -260,23 +258,23 @@ export async function connect() {
         // Create new blob URL if thumbnail changed
         let newThumbnailUrl = get(thumbnail);
         if (thumbChanged) {
-          // РћСЃРІРѕР±РѕР¶РґР°РµРј СЃС‚Р°СЂС‹Р№ blob URL
+          // Освобождаем старый blob URL
           if (currentBlobUrl) {
             URL.revokeObjectURL(currentBlobUrl);
             currentBlobUrl = null;
             currentBlob = null;
           }
 
-          // Р•СЃР»Рё РЅРµС‚ thumbnail - РѕСЃС‚Р°РІР»СЏРµРј null
+          // Если нет thumbnail - оставляем null
           if (base64 === null) {
             console.log("[WS] No thumbnail data, showing without image");
             newThumbnailUrl = null;
           }
-          // Р”РµРєРѕРґРёСЂСѓРµРј base64 РІ blob
-          // base64 РјРѕР¶РµС‚ Р±С‹С‚СЊ: СЃС‚СЂРѕРєРѕР№, РјР°СЃСЃРёРІРѕРј Р±Р°Р№С‚РѕРІ, РёР»Рё РѕР±СЉРµРєС‚РѕРј Buffer
+          // Декодируем base64 в blob
+          // base64 может быть: строкой, массивом байтов, или объектом Buffer
           else if (Array.isArray(base64)) {
             console.log("[WS] base64 type: array");
-            // РњР°СЃСЃРёРІ Р±Р°Р№С‚РѕРІ РЅР°РїСЂСЏРјСѓСЋ
+            // Массив байтов напрямую
             const bytes = new Uint8Array(base64);
             const blob = new Blob([bytes], { type: "image/png" });
             currentBlob = blob;
@@ -297,12 +295,12 @@ export async function connect() {
             newThumbnailUrl = currentBlobUrl;
           } else if (typeof base64 === "string") {
             console.log("[WS] base64 type: string");
-            // РЈРґР°Р»СЏРµРј data URL prefix РµСЃР»Рё РµСЃС‚СЊ
+            // Удаляем data URL prefix если есть
             let cleanBase64 = base64;
             if (cleanBase64.includes(",")) {
               cleanBase64 = cleanBase64.split(",")[1];
             }
-            // РЈРґР°Р»СЏРµРј РїСЂРѕР±РµР»С‹ Рё РїРµСЂРµРЅРѕСЃС‹ СЃС‚СЂРѕРє
+            // Удаляем пробелы и переносы строк
             cleanBase64 = cleanBase64.replace(/[\s\r\n]/g, "");
 
             try {
@@ -370,9 +368,9 @@ export async function connect() {
         // Update timeline/progress data
         updateTimeline(mediaData.timeline, mediaData.playback);
       } else if (mediaData && mediaData.media === null) {
-        // РњРµРґРёР° РѕСЃС‚Р°РЅРѕРІР»РµРЅРѕ вЂ” СЃРєСЂС‹РІР°РµРј СЃ Р·Р°РґРµСЂР¶РєРѕР№ (РїСЂРё СЃРјРµРЅРµ С‚СЂРµРєР°
-        // Р±СЌРєРµРЅРґ РєСЂР°С‚РєРѕРІСЂРµРјРµРЅРЅРѕ С€Р»С‘С‚ null, РїРѕС‚РѕРј РЅРѕРІС‹Р№ С‚СЂРµРє)
-        console.log("[WS] Media null вЂ” scheduling hide (1500ms)");
+        // Медиа остановлено — скрываем с задержкой (при смене трека
+        // бэкенд кратковременно шлёт null, потом новый трек)
+        console.log("[WS] Media null — scheduling hide (1500ms)");
         if (hideTimeout) clearTimeout(hideTimeout);
         hideTimeout = setTimeout(() => {
           hideTimeout = null;
@@ -389,17 +387,17 @@ export async function connect() {
         // Timeline update without full media change (e.g., position update)
         updateTimeline(mediaData.timeline, mediaData.playback);
 
-        // Check if playback stopped (pause/stop) вЂ” schedule hide
+        // Check if playback stopped (pause/stop) — schedule hide
         const playing =
           mediaData.playback && mediaData.playback.playbackStatus === 4;
         if (!playing && get(ShowTrack)) {
-          console.log("[WS] Playback paused/stopped вЂ” scheduling hide");
+          console.log("[WS] Playback paused/stopped — scheduling hide");
           if (hideTimeout) clearTimeout(hideTimeout);
           hideTimeout = setTimeout(() => {
             hideTimeout = null;
-            // Check again вЂ” maybe resumed during the delay
+            // Check again — maybe resumed during the delay
             if (!get(isPlaying)) {
-              console.log("[WS] Still paused вЂ” hiding player");
+              console.log("[WS] Still paused — hiding player");
               ShowTrack.set(false);
               lastTitle = null;
               lastArtist = null;
@@ -408,7 +406,7 @@ export async function connect() {
             }
           }, 600);
         } else if (playing && hideTimeout) {
-          // Resumed вЂ” cancel pending hide
+          // Resumed — cancel pending hide
           clearTimeout(hideTimeout);
           hideTimeout = null;
           if (!get(ShowTrack)) {
@@ -416,7 +414,7 @@ export async function connect() {
           }
         }
       }
-      // Р•СЃР»Рё РґР°РЅРЅС‹Рµ РЅРµРїРѕР»РЅС‹Рµ - РїСЂРѕСЃС‚Рѕ РёРіРЅРѕСЂРёСЂСѓРµРј, РѕСЃС‚Р°РІР»СЏРµРј РїСЂРµРґС‹РґСѓС‰РµРµ СЃРѕСЃС‚РѕСЏРЅРёРµ
+      // Если данные неполные - просто игнорируем, оставляем предыдущее состояние
     } catch (err) {
       console.error("[WS] Parsing error", err);
     }
@@ -433,6 +431,6 @@ export async function connect() {
     if (healthCheckInterval) clearInterval(healthCheckInterval);
     healthCheckInterval = null;
     setTimeout(connect, reconnectTimeout);
-    reconnectTimeout = Math.min(reconnectTimeout * 2, 30000);
+    reconnectTimeout = Math.min(reconnectTimeout * 2, 5000);
   };
 }

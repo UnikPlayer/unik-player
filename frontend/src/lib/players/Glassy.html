@@ -4,6 +4,7 @@
 .player {
   position: relative;
   width: 320px;
+  height: 120px;
   border-radius: 12px;
   overflow: hidden;
   background: var(--darkMuted);
@@ -51,20 +52,19 @@
 }
 
 .title {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.8rem;
+  font-weight: 700;
   color: var(--lightVibrant);
   white-space: nowrap;
   overflow: hidden;
 }
 
 .artist {
-  font-size: 0.8rem;
+  font-size: 1.4rem;
   color: var(--lightVibrant);
-  opacity: 0.6;
   white-space: nowrap;
   overflow: hidden;
-  margin-top: 2px;
+  font-weight:300;
 }
 
 .progress-track {
@@ -78,11 +78,12 @@
 .progress-fill {
   height: 100%;
   width: 0%;
-  background: var(--vibrant);
+  background: var(--lightvibrant);
   border-radius: 3px;
   transition: width 0.5s linear;
 }
-</style>
+    * { font-family: "Roboto Slab", sans-serif; }
+  </style>
 
 <div class="player">
   <div class="bg-blur"></div>

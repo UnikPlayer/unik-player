@@ -1,0 +1,28 @@
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    .player {
+        text-align: center;
+        padding: 0.8rem 0rem;
+        background: var(--darkVibrant);
+        border-radius: 0.25rem;
+        border: 2px solid var(--darkVibrant);
+        width: 20rem;
+    }
+    .title {
+        font-size: 2rem;
+        font-weight: 600;
+        color: var(--vibrant);
+        -webkit-text-stroke: 1px var(--lightVibrant);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+  * { font-family: "Yeseva One", sans-serif; }
+  </style>
+<div class="player">
+    <div class="title">{{title}} - {{artist}}</div>
+</div>

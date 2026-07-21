@@ -1,10 +1,13 @@
-﻿// Auto-discovery: Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё РЅР°С…РѕРґРёРј РІСЃРµ РїР»РµРµСЂС‹ РІ РїР°РїРєРµ /players
+// Auto-discovery: automatically find all players in /players
 const playerModules = import.meta.glob('./players/*.svelte', { eager: true });
+const playerHtmlModules = import.meta.glob('./players/*.html', { eager: true, as: 'raw' });
 
-// РљРѕРјРїРѕРЅРµРЅС‚ РґР»СЏ РєР°СЃС‚РѕРјРЅС‹С… РїР»РµРµСЂРѕРІ
+const inlinePlayerHtml = new Map();
+
+// Component for custom players
 import CustomPlayerRenderer from '$lib/components/CustomPlayerRenderer.svelte';
 
-// РџСЂРµРѕР±СЂР°Р·СѓРµРј РјРѕРґСѓР»Рё РІ РѕР±СЉРµРєС‚ { name: { component, meta } }
+// Convert modules to object { name: { component, meta } }
 const builtInPlayers = {};
 for (const [path, module] of Object.entries(playerModules)) {
   const name = path.match(/\/([^/]+)\.svelte$/)?.[1];
@@ -16,13 +19,25 @@ for (const [path, module] of Object.entries(playerModules)) {
   }
 }
 
+// Store inline HTML for bundled .html players
+for (const [path, html] of Object.entries(playerHtmlModules)) {
+  const name = path.match(/\/([^/]+)\.html$/)?.[1];
+  if (name && !name.startsWith('_')) {
+    inlinePlayerHtml.set(name, html);
+  }
+}
+
+export function getInlinePlayerHtml(name) {
+  return inlinePlayerHtml.get(name) || null;
+}
+
 // Backend API base URL
 function getApiBase() {
   if (typeof window === 'undefined') return 'http://127.0.0.1:27272';
   const port = window.location.port;
-  // Dev mode - proxy С‡РµСЂРµР· Vite РёР»Рё РЅР°РїСЂСЏРјСѓСЋ РЅР° backend
+  // Dev mode - proxy через Vite или напрѝмую на backend
   if (port === '7270' || port === '5173') return '';
-  // Production - С‚РѕС‚ Р¶Рµ С…РѕСЃС‚
+  // Production - тот же хоѝт
   return '';
 }
 
@@ -171,7 +186,19 @@ export async function getAllPlayersAsync() {
     isExample: true
   }));
 
-  return [...builtIn, ...playersMapped, ...customMapped];
+  // Inline HTML players from src/lib/players/*.html (bundled with app)
+  const inlineMapped = [];
+  for (const name of inlinePlayerHtml.keys()) {
+    inlineMapped.push({
+      component: CustomPlayerRenderer,
+      name,
+      isCustom: false,
+      isExample: true,
+      inlineHtml: inlinePlayerHtml.get(name)
+    });
+  }
+
+  return [...builtIn, ...playersMapped, ...inlineMapped, ...customMapped];
 }
 
 /**
@@ -183,7 +210,7 @@ export async function getAllPlayersAsync() {
 let knownExamplePlayers = [];
 
 /**
- * Get picked player by name (sync — relies on cached names for example players)
+ * Get picked player by name (sync � relies on cached names for example players)
  * @param {string} styleName
  * @returns {Array<{component: any, name: string, isCustom: boolean, isExample?: boolean}>}
  */
@@ -196,6 +223,16 @@ export function getPickedPlayer(styleName) {
       component: builtInPlayers[styleName].component,
       name: styleName,
       isCustom: false
+    }];
+  }
+
+  // Check inline HTML players (bundled .html files in src/lib/players/)
+  if (inlinePlayerHtml.has(styleName)) {
+    return [{
+      component: CustomPlayerRenderer,
+      name: styleName,
+      isCustom: false,
+      isExample: true
     }];
   }
 
@@ -244,3 +281,4 @@ export async function deleteCustomPlayer(name) {
   }
   return false;
 }
+

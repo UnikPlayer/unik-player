@@ -22,7 +22,7 @@
         isPlaying,
         language,
     } from "$lib/stores/stores.js";
-    import { getPickedPlayer, getPlayerMeta } from "$lib/getPlayers.js";
+    import { getPickedPlayer, getPlayerMeta, getInlinePlayerHtml } from "$lib/getPlayers.js";
     import ColorPicker from "./ColorPicker.svelte";
     import FontPicker from "./FontPicker.svelte";
     import ValidationErrorDialog from "./ValidationErrorDialog.svelte";
@@ -52,9 +52,9 @@
     let localStaticColor = "#B87333";
     let localFont = "Rubik";
     let lastAppliedFont = "Rubik";
-    let localPreviewScale = 0.5;
     let cssLoaded = false; // Flag to prevent CSS reload on every change
     let isCustomPlayer = false;
+    let isExamplePlayer = false;
     let editorIframeEl = null;
     let iframeSrcdoc = ""; // Set once on htmlText change, not on every color/font change
 
@@ -148,37 +148,9 @@
         {
             id: "progress",
             label: "Progress bar",
-            preview: "data-bind",
-            desc: "Animated progress bar",
-            code: '<div style="height:4px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden">\n  <div data-bind="progress-width" style="height:100%;background:var(--vibrant);width:0%;transition:width .5s linear"></div>\n</div>',
-        },
-        {
-            id: "curTime",
-            label: "Current time",
-            preview: "currentTime",
-            desc: "Current position e.g. 2:34",
-            code: '<span data-bind="currentTime">0:00</span>',
-        },
-        {
-            id: "totTime",
-            label: "Total time",
-            preview: "totalTime",
-            desc: "Total duration e.g. 4:12",
-            code: '<span data-bind="totalTime">0:00</span>',
-        },
-        {
-            id: "vibrant",
-            label: "--vibrant",
-            preview: "var(--vibrant)",
-            desc: "Main accent color from cover",
-            code: "var(--vibrant)",
-        },
-        {
-            id: "darkMuted",
-            label: "--darkMuted",
-            preview: "var(--darkMuted)",
-            desc: "Dark background color",
-            code: "var(--darkMuted)",
+            preview: "auto bar",
+            desc: "Progress bar component",
+            code: '<ProgressBarComponent height="4px" borderRadius="2px" />',
         },
     ];
 
@@ -311,6 +283,7 @@
 
     // Load HTML for custom player
     async function loadHTMLFromBackend(player) {
+        // Try custom-players API first (user might have saved a custom version)
         try {
             const res = await fetch(`${API_BASE}/api/custom-players/${player}`);
             if (res.ok) {
@@ -319,6 +292,9 @@
         } catch (err) {
             console.log("[Editor] Failed to load HTML from backend:", err);
         }
+        // Fall back to inline HTML (bundled .html in src/lib/players/)
+        const inlineHtml = getInlinePlayerHtml(player);
+        if (inlineHtml) return inlineHtml;
         return null;
     }
 
@@ -381,16 +357,14 @@
             playerComponent = players[0].component;
             playerName = players[0].name;
             isCustomPlayer =
-                players[0].isCustom || $editingPlayerIsCustom || false;
+                players[0].isCustom || players[0].isExample || $editingPlayerIsCustom || false;
+            isExamplePlayer = players[0].isExample || false;
         }
         // Load saved settings from store
         localColorMode = $playerStyles[$editingPlayer]?.colorMode || "dynamic";
         localStaticColor =
             $playerStyles[$editingPlayer]?.staticColor || "#B87333";
         localFont = $playerStyles[$editingPlayer]?.font || "Rubik";
-        const metaScale = getPlayerMeta($editingPlayer)?.defaultScale ?? 0.5;
-        localPreviewScale =
-            $playerStyles[$editingPlayer]?.previewScale ?? metaScale;
         lastAppliedFont = localFont;
 
         if (isCustomPlayer) {
@@ -468,7 +442,6 @@
                 colorMode: localColorMode,
                 staticColor: localStaticColor,
                 font: localFont,
-                previewScale: localPreviewScale,
             };
             await fetch(`${API_BASE}/api/styles`, {
                 method: "POST",
@@ -487,7 +460,6 @@
                 colorMode: localColorMode,
                 staticColor: localStaticColor,
                 font: localFont,
-                previewScale: localPreviewScale,
             },
         }));
         colorMode.set(localColorMode);
@@ -507,7 +479,20 @@
     }
 
     async function handleReset() {
-        if (isCustomPlayer) {
+
+        if (isExamplePlayer) {
+            // Reset inline HTML player to bundled original
+            const inlineHtml = getInlinePlayerHtml($editingPlayer);
+            if (inlineHtml) {
+                htmlText = inlineHtml;
+                originalHTML = htmlText;
+                notificationText.set("Reset to original");
+                ShowNotification.set(true);
+            } else {
+                notificationText.set("Reset failed");
+                ShowNotification.set(true);
+            }
+        } else if (isCustomPlayer) {
             // Reset to backup for custom player
             const success = await resetCustomPlayer($editingPlayer);
             if (success) {
@@ -527,7 +512,6 @@
         localColorMode = "dynamic";
         localStaticColor = "#B87333";
         localFont = "Rubik";
-        localPreviewScale = getPlayerMeta($editingPlayer)?.defaultScale ?? 0.5;
     }
 
     async function openHTMLExternal() {
@@ -755,7 +739,19 @@ window.addEventListener('message', function(e) {
             .replace(/\{\{position\}\}/g, Math.floor(pos))
             .replace(/\{\{duration\}\}/g, Math.floor(dur))
             .replace(/\{\{currentTime\}\}/g, formatTime(pos))
-            .replace(/\{\{totalTime\}\}/g, formatTime(dur));
+            .replace(/\{\{totalTime\}\}/g, formatTime(dur))
+            .replace(/<ProgressBarComponent\s*[^>]*\/>/gi, (match) => {
+                const h = (match.match(/height="([^"]+)"/) || [])[1] || '4px';
+                const br = (match.match(/border-radius="([^"]+)"/) || [])[1] || (match.match(/borderRadius="([^"]+)"/) || [])[1] || '2px';
+                const showTime = match.includes('showTime') && !match.includes('showTime={false}') || match.includes('show-time') && !match.includes('show-time="false"');
+                return `<div class="progress-container" style="margin-top:6px;">
+  ${showTime ? '<span class="time current" data-bind="currentTime">0:00</span>' : ''}
+  <div class="progress-bar" style="height:${h};border-radius:${br};">
+    <div class="progress-fill" style="width:0%;border-radius:${br};" data-bind="progress-width"></div>
+  </div>
+  ${showTime ? '<span class="time total" data-bind="totalTime">0:00</span>' : ''}
+</div>`;
+            });
 
         // Generate color CSS
         const colorVars = colors || {
@@ -1061,6 +1057,7 @@ window.addEventListener('message', function(e) {
                                 {/each}
                             </div>
                         </div>
+                        <button class="footer-btn" on:click={() => window.open('/wiki', '_blank')}>WIKI</button>
                     {/if}
 
                     <!-- CSS/HTML Editor -->
@@ -1072,7 +1069,7 @@ window.addEventListener('message', function(e) {
                                     ? "PLAYER.HTML"
                                     : "CONFIG.CSS"}</span
                             >
-                            {#if isCustomPlayer}
+                            {#if isCustomPlayer && !isExamplePlayer}
                                 <span class="custom-badge-small">CUSTOM</span>
                                 <button
                                     class="file-info-btn edit-external-btn"
@@ -1115,25 +1112,6 @@ window.addEventListener('message', function(e) {
                         </div>
                     </div>
 
-                    <!-- Preview Scale (Menu Size) -->
-                    <div class="control-group scale-group">
-                        <div class="control-header">
-                            <span class="control-icon">⊡</span>
-                            <span>MENU_SIZE</span>
-                            <span class="scale-value"
-                                >{Math.round(localPreviewScale * 100)}%</span
-                            >
-                        </div>
-                        <div class="scale-slider">
-                            <input
-                                type="range"
-                                min="0.2"
-                                max="1"
-                                step="0.05"
-                                bind:value={localPreviewScale}
-                            />
-                        </div>
-                    </div>
                 </section>
             </main>
 
@@ -1494,47 +1472,6 @@ window.addEventListener('message', function(e) {
         letter-spacing: 0;
     }
 
-    .scale-value {
-        margin-left: auto;
-        font-family: '8bitwonder', monospace;
-        font-size: 1rem;
-        color: var(--c1);
-    }
-
-    .scale-slider {
-        padding: 0.5rem 0;
-
-        input[type="range"] {
-            width: 100%;
-            height: 4px;
-            appearance: none;
-            background: rgba(0, 0, 0, 0.1);
-            cursor: pointer;
-
-            &::-webkit-slider-thumb {
-                appearance: none;
-                width: 14px;
-                height: 14px;
-                background: var(--c1);
-                cursor: pointer;
-                transition: all 0.2s;
-
-                &:hover {
-                    background: #333;
-                    transform: scale(1.1);
-                }
-            }
-
-            &::-moz-range-thumb {
-                width: 14px;
-                height: 14px;
-                background: var(--c1);
-                border: none;
-                cursor: pointer;
-            }
-        }
-    }
-
     .edit-external-btn {
         margin-left: auto !important;
         background: transparent !important;
@@ -1601,7 +1538,7 @@ window.addEventListener('message', function(e) {
         gap: 0.4rem;
     }
 
-    .snippet-btn {
+  .snippet-btn {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
@@ -1808,3 +1745,12 @@ window.addEventListener('message', function(e) {
         }
     }
 </style>
+
+
+
+
+
+
+
+
+

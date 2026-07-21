@@ -32,10 +32,6 @@
       class="progress-fill"
       style="width: {$trackProgress}%; border-radius: {borderRadius};"
     ></div>
-    <div
-      class="progress-glow"
-      style="width: {$trackProgress}%;"
-    ></div>
   </div>
 
   {#if showTime}
@@ -85,18 +81,6 @@
       var(--vibrant, #B87333) 0%,
       var(--lightVibrant, #D4944A) 100%
     );
-    transition: width 0.1s linear;
-  }
-
-  .progress-glow {
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 100%;
-    background: var(--vibrant, #B87333);
-    filter: blur(8px);
-    opacity: 0.4;
-    pointer-events: none;
     transition: width 0.1s linear;
   }
 </style>

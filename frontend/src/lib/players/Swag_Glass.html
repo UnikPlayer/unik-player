@@ -1,0 +1,103 @@
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+.player {
+  position: relative;
+  width: 22rem;
+  height:8rem;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: var(--vibrant);
+  font-family: "Rubik", sans-serif;
+}
+
+.bg-blur {
+  position: absolute;
+  inset: 0;
+  background-image: url("{{thumbnail}}");
+  background-size: cover;
+  background-position: center;
+  filter: blur(4px) brightness(0.4);
+  transform: scale(1);
+  z-index: 0;
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.text-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--lightVibrant);
+  white-space: nowrap;
+  overflow: hidden;
+  padding:0.5rem 0 0.5rem 1rem;
+}
+
+.artist {
+  font-size: 1.9rem;
+  font-weight:300;
+  color: var(--lightVibrant);
+  opacity: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  padding: 0 0 0.5rem 1rem;
+}
+
+.time-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.time {
+  font-size: 1rem;
+  font-weight:700;
+  color: var(--vibrant);
+  
+
+  padding:0 0.5rem;
+
+}
+
+.progress-track {
+  width: 100%;
+  height: 0.4rem;
+  background: rgba(255,255,255,0.1);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(
+      90deg,
+      var(--lightVibrant, #B87333) 10%,
+      var(--vibrant, #D4944A) 100%
+    );
+}
+
+  * { font-family: "WDXLLubrifontTC", sans-serif; }
+  </style>
+
+<div class="player">
+  <div class="bg-blur"></div>
+  <div class="content">
+    <div class="text-block">
+      <div class="title"> {{title}}  </div>
+      <div class="artist">{{artist}}</div>
+    </div>
+
+    <ProgressBarComponent height="14px" borderRadius="0 15px 0 0"/>
+  </div>
+</div>

@@ -1,8 +1,8 @@
 <script context="module">
     export const meta = {
-        name: "ProgressBar",
+        name: "aesthetic",
         defaultCSS: `
-        /* === PROGRESSBAR PLAYER === */
+        /* === aesthetic PLAYER === */
 /*               Colors: 
    var(--vibrant),      var(--muted),
    var(--lightVibrant), var(--darkVibrant),
@@ -85,11 +85,7 @@
     $: hasRealData = $title !== null;
     $: displayTitle = preview ? demoTitle : $title || demoTitle;
     $: displayArtist = preview ? demoArtist : $artist || demoArtist;
-    $: displayThumbnail = preview
-        ? demoThumbnail
-        : hasRealData
-          ? $thumbnail || blackPlaceholder
-          : demoThumbnail;
+    $: displayThumbnail = $thumbnail || blackPlaceholder;
     $: shouldShow = preview || showAlways || $ShowTrack;
 
     const flyIn = { x: -50, duration: 400, opacity: 0 };
@@ -98,7 +94,7 @@
 
 {#if shouldShow}
     {#key `${displayTitle}-${displayArtist}`}
-        <div class="player-ProgressBar">
+        <div class="player-aesthetic">
             <div class="mainDiv" in:fly|global={flyIn} out:fly|global={flyOut}>
                 <img class="pic" src={displayThumbnail} alt="" />
 

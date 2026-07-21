@@ -2,7 +2,7 @@
 import { ShowNotification } from '$lib/stores/stores.js'
 
 export async function chooseFunc(name){        
-    console.log(name + " РІС‹Р±СЂР°РЅ")
+    console.log(name + " выбран")
 
     style.set(name)
 
@@ -23,8 +23,8 @@ export async function copyPlayerStyle(name) {
             document.execCommand('copy');
             document.body.removeChild(ta);
         }
-        console.log('РЎРєРѕРїРёСЂРѕРІР°РЅРѕ!');
+        console.log('Скопировано!');
     } catch (err) {
-        console.error('РќРµ СѓРґР°Р»РѕСЃСЊ СЃРєРѕРїРёСЂРѕРІР°С‚СЊ: ', err);
+        console.error('Не удалось скопировать: ', err);
     }
 }

@@ -109,12 +109,7 @@
     $: hasRealData = $title !== null;
     $: displayTitle = preview ? demoTitle : $title || demoTitle;
     $: displayArtist = preview ? demoArtist : $artist || demoArtist;
-    // Black placeholder only when real track has no image, DEMO when no data
-    $: displayThumbnail = preview
-        ? demoThumbnail
-        : hasRealData
-          ? $thumbnail || blackPlaceholder
-          : demoThumbnail;
+    $: displayThumbnail = $thumbnail || blackPlaceholder;
     $: shouldShow = preview || showAlways || $ShowTrack;
 
     // Animation config

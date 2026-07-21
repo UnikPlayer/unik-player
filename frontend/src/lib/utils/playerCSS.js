@@ -50,7 +50,7 @@ export function transformCSS(rawCSS, playerName, containerScope = '') {
     const selectors = selector.split(',').map(s => {
       s = s.trim();
       if (!s) return '';
-      // Already contains our player scope вЂ” don't double-nest
+      // Already contains our player scope — don't double-nest
       if (s.includes(playerScope)) return s;
       if (s === '*') return `${fullScope} *`;
       return `${fullScope} ${s}`;

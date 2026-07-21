@@ -473,6 +473,13 @@ class Program
         Task.Run(() => StartWebSocketServer());
         StartMediaManager();
 
+        // Clean old logs on startup
+        CleanOldLogs();
+
+        // Schedule daily log cleanup
+        var logCleanupTimer = new System.Threading.Timer(_ => CleanOldLogs(), null, 
+            TimeSpan.FromHours(24), TimeSpan.FromHours(24));
+
         Console.WriteLine($"HTTP ������: http://localhost:{HTTP_PORT}/");
         Console.WriteLine($"WebSocket ������: ws://localhost:{WS_PORT}/");
         Console.WriteLine($"Logs: {GetLogPathForInfo()}/app-*.log");
@@ -633,8 +640,8 @@ class Program
 
         menu.Items.Add(new ToolStripSeparator());
 
-        // Кнопка "Обновить приложение" (скрыта по умолчанию)
-        _updateMenuItem = new ToolStripMenuItem("Обновить приложение", null, async (s, e) =>
+        // "Update available" button (hidden by default)
+        _updateMenuItem = new ToolStripMenuItem("Update available", null, async (s, e) =>
         {
             Console.WriteLine("[Update] User initiated update");
             await StartUpdate(relaunch: true);
@@ -642,9 +649,9 @@ class Program
         _updateMenuItem.ForeColor = Color.White;
         _updateMenuItem.Visible = false;
         _updateMenuItem.Font = new Font(_updateMenuItem.Font, FontStyle.Bold);
-        menu.Items.Add(_updateMenuItem);
+        //menu.Items.Add(_updateMenuItem);
 
-        // Кнопка "Exit" с иконкой
+        // "Exit" button with icon
         var exitItem = new ToolStripMenuItem("Exit", exitIcon, (s, e) =>
         {
             _trayIcon.Visible = false;
@@ -765,6 +772,7 @@ class Program
         {
             try
             {
+                if (session?.ControlSession == null) continue;
                 var playback = session.ControlSession.GetPlaybackInfo();
                 if (playback.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
                 {
@@ -795,6 +803,7 @@ class Program
         {
             try
             {
+                if (session?.ControlSession == null) continue;
                 var playback = session.ControlSession.GetPlaybackInfo();
                 if (playback.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
                 {
@@ -823,6 +832,7 @@ class Program
         const int MAX_RETRIES = 2;  // 2 * 200ms = 400ms max ��� ��������
         try
         {
+            if (session?.ControlSession == null) return;
             // Track seen source and check filter
             var sourceId = session.Id ?? "";
             AddSeenSource(sourceId);
@@ -1000,6 +1010,7 @@ class Program
     {
         try
         {
+            if (session?.ControlSession == null) return;
             var playback = session.ControlSession.GetPlaybackInfo();
             var timelineProps = session.ControlSession.GetTimelineProperties();
             var currentPosition = timelineProps.Position.TotalSeconds;
@@ -1036,6 +1047,7 @@ class Program
     {
         try
         {
+            if (session?.ControlSession == null) return;
             var playback = session.ControlSession.GetPlaybackInfo();
             var timelineProps = session.ControlSession.GetTimelineProperties();
             var currentPosition = timelineProps.Position.TotalSeconds;
@@ -1414,6 +1426,7 @@ class Program
         {
             try
             {
+                if (session?.ControlSession == null) continue;
                 var playback = session.ControlSession.GetPlaybackInfo();
                 if (playback.PlaybackStatus != GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
                     continue;
@@ -1493,8 +1506,15 @@ class Program
 
                 if (ws.State == WebSocketState.Open)
                 {
-                    await ws.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
-                    Console.WriteLine($"[WS] ���������� ������� ���������: {artist} - {title} (pos: {timelineProps.Position.TotalSeconds:F0}s)");
+                    // Use per-client semaphore to prevent race with BroadcastMessage
+                    var sem = _sendSemaphores.GetOrAdd(ws, _ => new SemaphoreSlim(1, 1));
+                    await sem.WaitAsync();
+                    try
+                    {
+                        await ws.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
+                        Console.WriteLine($"[WS] ���������� ������� ���������: {artist} - {title} (pos: {timelineProps.Position.TotalSeconds:F0}s)");
+                    }
+                    finally { sem.Release(); }
                 }
                 return;
             }
@@ -1556,9 +1576,17 @@ class Program
                         return;
                     }
                     
-                    // Send ping
-                    var pingData = Encoding.UTF8.GetBytes("ping");
-                    await ws.SendAsync(new ArraySegment<byte>(pingData), WebSocketMessageType.Text, true, CancellationToken.None);
+                    // Send ping (with semaphore to prevent race with BroadcastMessage)
+                    var sem = _sendSemaphores.GetOrAdd(ws, _ => new SemaphoreSlim(1, 1));
+                    if (sem.Wait(0))
+                    {
+                        try
+                        {
+                            var pingData = Encoding.UTF8.GetBytes("ping");
+                            await ws.SendAsync(new ArraySegment<byte>(pingData), WebSocketMessageType.Text, true, CancellationToken.None);
+                        }
+                        finally { sem.Release(); }
+                    }
                 }
             }
             catch (Exception ex)
@@ -1623,6 +1651,39 @@ class Program
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "UnikPlayer");
         return Path.Combine(baseDir, "logs");
+    }
+
+    static void CleanOldLogs()
+    {
+        try
+        {
+            var logDir = GetLogPathForInfo();
+            if (!Directory.Exists(logDir)) return;
+
+            var cutoff = DateTime.Now.AddMonths(-1);
+            var deleted = 0;
+
+            foreach (var file in Directory.GetFiles(logDir, "app-*.log"))
+            {
+                try
+                {
+                    var lastWrite = File.GetLastWriteTime(file);
+                    if (lastWrite < cutoff)
+                    {
+                        File.Delete(file);
+                        deleted++;
+                    }
+                }
+                catch { }
+            }
+
+            if (deleted > 0)
+                Console.WriteLine($"[LogCleanup] Deleted {deleted} log files older than 30 days");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[LogCleanup] Error: {ex.Message}");
+        }
     }
 
     static async Task StartHttpServer()
@@ -3059,7 +3120,7 @@ class Program
                 var familyName = GetFontFamilyName(fontFile);
                 if (string.IsNullOrEmpty(familyName))
                 {
-                    Console.WriteLine($"[Fonts] Skipping {fileName} � can't read font name");
+                    Console.WriteLine($"[Fonts] Skipping {fileName} � can't read font name");
                     continue;
                 }
 
@@ -3292,12 +3353,9 @@ class Program
 
             if (!File.Exists(htmlPath))
             {
-                response.StatusCode = 404;
-                var err = Encoding.UTF8.GetBytes("{\"error\":\"Player not found\"}");
-                response.ContentType = "application/json; charset=utf-8";
-                await response.OutputStream.WriteAsync(err);
-                response.Close();
-                return;
+                // File doesn't exist yet � create it (save as new custom player)
+                Directory.CreateDirectory(CUSTOM_PLAYERS_DIR);
+                File.WriteAllText(htmlPath, "");
             }
 
             using var reader = new StreamReader(request.InputStream, request.ContentEncoding);
@@ -3844,6 +3902,7 @@ class DarkColorTable : ProfessionalColorTable
     public override Color SeparatorDark => Color.FromArgb(70, 70, 70);
     public override Color SeparatorLight => Color.FromArgb(32, 32, 32);
 }
+
 
 
 

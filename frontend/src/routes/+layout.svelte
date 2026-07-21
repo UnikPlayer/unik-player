@@ -19,7 +19,7 @@
   $: isPlayer = page.url?.pathname === '/player';
 
   $: {
-    showHeader = page.url?.pathname !== '/player' && page.url?.pathname !== '/';
+    showHeader = page.url?.pathname !== '/player' && page.url?.pathname !== '/' && page.url?.pathname !== '/wiki';
   }
 </script>
 
@@ -49,6 +49,10 @@
 {/if}
 
 {#if showHeader}
+  <header>
+    <a href="/" class="nav-link">PLAYERS</a>
+    <a href="/howToMake" class="nav-link">DOCS</a>
+  </header>
 {/if}
 
 <slot />

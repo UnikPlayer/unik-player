@@ -98,8 +98,7 @@ color: var(--lightVibrant);`;
     { sel: '.time.current',       desc: 'текущее время' },
     { sel: '.time.total',         desc: 'общая длительность' },
     { sel: '.progress-bar',       desc: 'трек (фоновая полоса)' },
-    { sel: '.progress-fill',      desc: 'заполненная часть' },
-    { sel: '.progress-glow',      desc: 'свечение за fill' },
+    { sel: '.progress-fill',      desc: 'заполненная часть' }
   ];
 
   let hoverSel = '';
@@ -133,20 +132,24 @@ color: var(--lightVibrant);`;
 
     <section id="start">
       <h1>{L.h1[lang]}</h1>
-      <p>{@html L.start_p[lang]}</p>
+      <div class="block">
+        <p>{@html L.start_p[lang]}</p>
+      </div>
     </section>
 
     <section id="vars">
       <h2>{L.vars_title[lang]}</h2>
-      <p>{L.vars_p[lang]}</p>
-      <table><tbody>
-        <tr><td class="cell">{'{'}{'{'}title{'}'}{'}'}</td><td>{L.vars_track[lang]}</td></tr>
-        <tr><td class="cell">{'{'}{'{'}artist{'}'}{'}'}</td><td>{L.vars_artist[lang]}</td></tr>
-        <tr><td class="cell">{'{'}{'{'}thumbnail{'}'}{'}'}</td><td>{L.vars_thumb[lang]}</td></tr>
-        <tr><td class="cell">{'{'}{'{'}currentTime{'}'}{'}'}</td><td>{L.vars_time[lang]}</td></tr>
-        <tr><td class="cell">{'{'}{'{'}totalTime{'}'}{'}'}</td><td>{L.vars_dur[lang]}</td></tr>
-        <tr><td class="cell">{'{'}{'{'}progress{'}'}{'}'}</td><td>{L.vars_prog[lang]}</td></tr>
-      </tbody></table>
+      <div class="block">
+        <p>{L.vars_p[lang]}</p>
+        <table><tbody>
+          <tr><td class="cell">{'{'}{'{'}title{'}'}{'}'}</td><td>{L.vars_track[lang]}</td></tr>
+          <tr><td class="cell">{'{'}{'{'}artist{'}'}{'}'}</td><td>{L.vars_artist[lang]}</td></tr>
+          <tr><td class="cell">{'{'}{'{'}thumbnail{'}'}{'}'}</td><td>{L.vars_thumb[lang]}</td></tr>
+          <tr><td class="cell">{'{'}{'{'}currentTime{'}'}{'}'}</td><td>{L.vars_time[lang]}</td></tr>
+          <tr><td class="cell">{'{'}{'{'}totalTime{'}'}{'}'}</td><td>{L.vars_dur[lang]}</td></tr>
+          <tr><td class="cell">{'{'}{'{'}progress{'}'}{'}'}</td><td>{L.vars_prog[lang]}</td></tr>
+        </tbody></table>
+      </div>
     </section>
 
     <section id="bind">
@@ -159,62 +162,71 @@ color: var(--lightVibrant);`;
       <p>{L.bind_params[lang]}</p>
       <table><tbody>
         <tr><td class="cell">height</td><td>{L.bind_param_height[lang]} (по умолч. 4px)</td></tr>
-        <tr><td class="cell">borderRadius / border-radius</td><td>{L.bind_param_radius[lang]} (по умолч. 2px)</td></tr>
-        <tr><td class="cell">showTime / show-time</td><td>{L.bind_param_time[lang]} (по умолч. true)</td></tr>
+        <tr><td class="cell">borderRadius</td><td>{L.bind_param_radius[lang]} (по умолч. 2px)</td></tr>
+        <tr><td class="cell">ShowTime</td><td>{L.bind_param_time[lang]} (по умолч. скрыт)</td></tr>
       </tbody></table>
 
       <p>{L.bind_styles[lang]}</p>
-      <pre class="code-ref">
+      <div class="block">
+        <div class="code-ref">
 {#each CLASSES as c}
-<span class="code-line" class:active={hoverSel && (hoverSel === c.sel || (c.sel === '.time' && hoverSel.startsWith('.time')))}>
+<span class="code-line" class:active={hoverSel && (hoverSel === c.sel || c.sel === '.time' && hoverSel.startsWith('.time'))} on:mouseenter={() => hoverSel=c.sel} on:mouseleave={() => hoverSel=''}>
   <span class="cm">// {c.desc}</span>
   <span class="s">{c.sel}</span> {'{'} ... {'}'}
 </span>
 {/each}
-      </pre>
+        </div>
+      </div>
 
-      <div class="bar-demo" style="--dv:#C48C37;--dlv:#E4AFAB;--ddm:#4B4F25;">
-        <div class="bar-container" on:mouseenter={() => hoverSel='.progress-container'} on:mouseleave={() => hoverSel=''}>
-          <span class="bar-time bar-cur" on:mouseenter={() => hoverSel='.time.current'} on:mouseleave={() => hoverSel=''}>2:28</span>
-          <div class="bar-track" on:mouseenter={() => hoverSel='.progress-bar'} on:mouseleave={() => hoverSel=''}>
-            <div class="bar-fill" style="width:34%;" on:mouseenter={() => hoverSel='.progress-fill'} on:mouseleave={() => hoverSel=''}></div>
-            <div class="bar-glow" style="width:34%;" on:mouseenter={() => hoverSel='.progress-glow'} on:mouseleave={() => hoverSel=''}></div>
+      <div class="block">
+        <div class="bar-demo" style="--dv:#C48C37;--dlv:#E4AFAB;--ddm:#4B4F25;">
+          <div class="bar-container" class:hovered={hoverSel === '.progress-container'} on:mouseenter={() => hoverSel='.progress-container'} on:mouseleave={() => hoverSel=''}>
+            <span class="bar-time bar-cur" class:hovered={hoverSel === '.time' || hoverSel === '.time.current'} on:mouseenter={() => hoverSel='.time.current'} on:mouseleave={() => hoverSel=''}>2:28</span>
+            <div class="bar-track" class:hovered={hoverSel === '.progress-bar'} on:mouseenter={() => hoverSel='.progress-bar'} on:mouseleave={() => hoverSel=''}>
+              <div class="bar-fill" style="width:34%;" class:hovered={hoverSel === '.progress-fill'} on:mouseenter={() => hoverSel='.progress-fill'} on:mouseleave={() => hoverSel=''}></div>
+            </div>
+            <span class="bar-time bar-total" class:hovered={hoverSel === '.time' || hoverSel === '.time.total'} on:mouseenter={() => hoverSel='.time.total'} on:mouseleave={() => hoverSel=''}>7:27</span>
           </div>
-          <span class="bar-time bar-total" on:mouseenter={() => hoverSel='.time.total'} on:mouseleave={() => hoverSel=''}>7:27</span>
         </div>
       </div>
     </section>
 
     <section id="marquee">
       <h2>{L.marquee_title[lang]}</h2>
-      <p>{@html L.marquee_p[lang]}</p>
-      <pre><code>&lt;div class="title"&gt;{'{'}{'{'}title{'}}'}&lt;/div&gt;
+      <div class="block">
+        <p>{@html L.marquee_p[lang]}</p>
+        <pre><code>&lt;div class="title"&gt;{'{'}{'{'}title{'}}'}&lt;/div&gt;
 &lt;div class="artist"&gt;{'{'}{'{'}artist{'}}'}&lt;/div&gt;</code></pre>
+      </div>
     </section>
 
     <section id="colors">
       <h2>{L.colors_title[lang]}</h2>
-      <p>{@html L.colors_p[lang]}</p>
-      <div class="colors-row">
-        <table><tbody>
-          <tr><td class="cell"><code>--vibrant</code></td><td><span class="sw" style="background:#C48C37;"></span> #C48C37</td></tr>
-          <tr><td class="cell"><code>--lightVibrant</code></td><td><span class="sw" style="background:#E4AFAB;"></span> #E4AFAB</td></tr>
-          <tr><td class="cell"><code>--darkVibrant</code></td><td><span class="sw" style="background:#86611C;"></span> #86611C</td></tr>
-          <tr><td class="cell"><code>--muted</code></td><td><span class="sw" style="background:#B0855D;"></span> #B0855D</td></tr>
-          <tr><td class="cell"><code>--lightMuted</code></td><td><span class="sw" style="background:#CCABA4;"></span> #CCABA4</td></tr>
-          <tr><td class="cell"><code>--darkMuted</code></td><td><span class="sw" style="background:#4B4F25;"></span> #4B4F25</td></tr>
-        </tbody></table>
-        <img src="/exampleForWiki.png" alt="Color palette example" class="palette-img" />
+      <div class="block">
+        <p>{@html L.colors_p[lang]}</p>
+        <div class="colors-row">
+          <table><tbody>
+            <tr><td class="cell"><code>--vibrant</code></td><td><span class="sw" style="background:#C48C37;"></span> #C48C37</td></tr>
+            <tr><td class="cell"><code>--lightVibrant</code></td><td><span class="sw" style="background:#E4AFAB;"></span> #E4AFAB</td></tr>
+            <tr><td class="cell"><code>--darkVibrant</code></td><td><span class="sw" style="background:#86611C;"></span> #86611C</td></tr>
+            <tr><td class="cell"><code>--muted</code></td><td><span class="sw" style="background:#B0855D;"></span> #B0855D</td></tr>
+            <tr><td class="cell"><code>--lightMuted</code></td><td><span class="sw" style="background:#CCABA4;"></span> #CCABA4</td></tr>
+            <tr><td class="cell"><code>--darkMuted</code></td><td><span class="sw" style="background:#4B4F25;"></span> #4B4F25</td></tr>
+          </tbody></table>
+          <img src="/exampleForWiki.png" alt="Color palette example" class="palette-img" />
+        </div>
+        <p>{L.colors_note[lang]}</p>
+        <pre><code>{@html COLORS_CODE}</code></pre>
       </div>
-      <p>{L.colors_note[lang]}</p>
-      <pre><code>{@html COLORS_CODE}</code></pre>
     </section>
 
     <section id="google">
       <h2>{L.google_title[lang]}</h2>
-      <p>{@html L.google_p1[lang]}</p>
-      <pre><code>{@html GOOGLE_CODE}</code></pre>
-      <p>{@html L.google_p2[lang]}</p>
+      <div class="block">
+        <p>{@html L.google_p1[lang]}</p>
+        <pre><code>{@html GOOGLE_CODE}</code></pre>
+        <p>{@html L.google_p2[lang]}</p>
+      </div>
     </section>
 
     </div>
@@ -223,7 +235,12 @@ color: var(--lightVibrant);`;
 </div>
 
 <style>
+  :root{
+    --hoovered:#8661C1;
+  }
+
   :global(body) { background: #000; margin: 0; }
+  :global(.bg-gradient) { background: #000 !important; }
 
   .top-bar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 100;
@@ -265,26 +282,47 @@ color: var(--lightVibrant);`;
   pre code { background: transparent; padding: 0; }
 
   .code-line { display: block; padding: 0.15rem 0.3rem; margin-bottom: 0.4rem; transition: background 0.15s; border-radius: 3px; }
-  .code-line.active { background: rgba(255,255,255,0.06); }
-  .code-line .cm { color: rgba(255,255,255,0.35); font-style: italic; }
+  .code-line.active { background: rgba(255,255,255,0.1); }
+  .code-line .cm { display: block; color: rgba(255,255,255,0.35); font-style: italic; }
   .code-line .s { color: var(--c2, #fff); font-weight: 500; }
 
 
   .bar-demo { display: flex; flex-direction: column; margin-top: 0.5rem; padding: 0.5rem; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; }
-  .bar-container { display: flex; align-items: center; gap: 0; width: 100%; }
-  .bar-time { font-family: "JetBrains Mono",monospace; font-size: 0.65rem; color: var(--dlv,#E4AFAB); min-width: 2.2rem; }
+  .bar-container { display: flex; align-items: center; gap: 0; width: 100%; height:10px; transition: all 0.15s; }
+  .bar-time { font-family: "JetBrains Mono",monospace; font-size: 1rem; color: var(--dlv,#E4AFAB); min-width: 2.2rem; transition: color 0.2s, text-shadow 0.2s; }
   .bar-cur { text-align: right; padding-right: 0.3rem; }
   .bar-total { text-align: left; opacity: 0.6; padding-left: 0.3rem; }
-  .bar-track { flex: 1; position: relative; height: 4px; background: var(--ddm,#4B4F25); overflow: hidden; border-radius: 2px; }
-  .bar-fill { height: 100%; background: linear-gradient(90deg,var(--dv,#C48C37),var(--dlv,#E4AFAB)); border-radius: 2px; transition: width 0.1s linear; }
-  .bar-glow { position: absolute; top: 0; left: 0; height: 100%; background: var(--dv,#C48C37); filter: blur(8px); opacity: 0.4; pointer-events: none; border-radius: 2px; }
+  .bar-track { flex: 1; position: relative; height: 8px; background: var(--ddm,#4B4F25); overflow: hidden; border-radius: 2px; transition: all 0.2s; }
+  .bar-fill { height: 100%; background: linear-gradient(90deg,var(--dv,#C48C37),var(--dlv,#E4AFAB)); border-radius: 2px; transition: width 0.1s linear, background 0.2s, box-shadow 0.2s; }
+  .bar-container.hovered { outline: 2px solid var(--hoovered); outline-offset: 3px; border-radius: 4px; }
+
+  .bar-time.hovered  { color:            var(--hoovered);}
+  .bar-track.hovered { background-color: var(--hoovered);}
+  .bar-fill.hovered  { background-color: var(--hoovered);}
+  .bar-fill.hovered  { background:       var(--hoovered);}
   table { border-collapse: collapse; margin: 0.8rem 0; font-size: 1rem; }
   td { padding: 0.4rem 0.6rem; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: middle; color: rgba(255,255,255,0.65); }
   .cell { font-family: 'JetBrains Mono', monospace; font-size: 0.85em; white-space: nowrap; padding-right: 1.5rem; color: rgba(255,255,255,0.9); }
   .sw { display: inline-block; width: 1.2em; height: 1.2em; border-radius: 3px; vertical-align: middle; margin-right: 0.4em; border: 1px solid rgba(255,255,255,0.1); }
 
-  .colors-row { display: flex; gap: 1.5rem; align-items: flex-start; margin: 0.8rem 0; }
+  .colors-row { display: flex; gap: 1.5rem; justify-content:space-between; margin: 0.8rem 0; }
   .palette-img { width: 170px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
+
+  .block{ 
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    padding: 0.25rem;
+    margin: 0.8rem 0;
+  }
 </style>
+
+
+1
+
+
+
+
+
+
 
 

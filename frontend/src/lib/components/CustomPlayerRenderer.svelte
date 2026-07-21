@@ -9,6 +9,7 @@
         ShowTrack,
     } from "$lib/stores/stores.js";
     import { marquee } from "$lib/marquee.js";
+    import { getInlinePlayerHtml } from "$lib/getPlayers.js";
 
     function getApiBase() {
         if (typeof window === "undefined") return "http://127.0.0.1:27272";
@@ -96,16 +97,19 @@
     function renderProgressBarHTML(tag) {
         const h = (tag.match(/height="([^"]+)"/) || [])[1] || '4px';
         const br = (tag.match(/border-radius="([^"]+)"/) || [])[1] || (tag.match(/borderRadius="([^"]+)"/) || [])[1] || '2px';
-        const showTime = !tag.includes('showTime={false}') && !tag.includes('show-time="false"');
+        const showTime = tag.includes('showTime') && !tag.includes('showTime={false}') || tag.includes('show-time') && !tag.includes('show-time="false"');
 
         return `<div class="progress-container">
   ${showTime ? '<span class="time current" data-bind="currentTime">0:00</span>' : ''}
   <div class="progress-bar" style="height:${h};border-radius:${br};">
     <div class="progress-fill" style="width:0%;border-radius:${br};" data-bind="progress-width"></div>
-    <div class="progress-glow" style="width:0%;" data-bind="progress-width"></div>
   </div>
   ${showTime ? '<span class="time total" data-bind="totalTime">0:00</span>' : ''}
 </div>`;
+    }
+
+    function replaceProgressBar(html) {
+        return html.replace(/<ProgressBarComponent\s*[^>]*\/>/gi, (match) => renderProgressBarHTML(match));
     }
 
     function renderToShadow(template) {
@@ -118,8 +122,8 @@
             .replace(/\{\{position\}\}/g, "0")
             .replace(/\{\{duration\}\}/g, "0")
             .replace(/\{\{currentTime\}\}/g, "0:00")
-            .replace(/\{\{totalTime\}\}/g, "0:00")
-            .replace(/<ProgressBarComponent\s[^>]*\/>/gi, (match) => renderProgressBarHTML(match));
+            .replace(/\{\{totalTime\}\}/g, "0:00");
+        html = replaceProgressBar(html);
 
         shadowRoot = shadowHost.attachShadow({ mode: 'open' });
         shadowRoot.innerHTML = html;
@@ -139,12 +143,12 @@
 }
 body { font-family: var(--font); margin:0; padding:0; background:transparent; }
 .progress-container { display:flex; align-items:center; gap:0; width:100%; }
-.progress-container .time { font-family:"Rubik",sans-serif; font-size:0.75rem; color:var(--lightVibrant,rgba(255,255,255,0.7)); min-width:2.2rem; }
+.progress-container .time {font-size:0.75rem; color:var(--lightVibrant,rgba(255,255,255,0.7)); min-width:2.2rem; }
 .progress-container .time.current { text-align:right; padding-right:0.3rem; }
 .progress-container .time.total { text-align:left; opacity:0.6; padding-left:0.3rem; }
-.progress-container .progress-bar { flex:1; position:relative; background:var(--darkMuted,rgba(255,255,255,0.1)); overflow:hidden; }
-.progress-container .progress-fill { height:100%; background:linear-gradient(90deg,var(--vibrant,#B87333) 0%,var(--lightVibrant,#D4944A) 100%); transition:width 0.1s linear; }
-.progress-container .progress-glow { position:absolute; top:0; left:0; height:100%; background:var(--vibrant,#B87333); filter:blur(8px); opacity:0.4; pointer-events:none; transition:width 0.1s linear; }`;
+.progress-container .progress-bar { flex:1; position:relative; background:var(--darkVibrant,rgba(255,255,255,0.01)); overflow:hidden; }
+.progress-container .progress-fill { height:100%; background:linear-gradient(90deg,var(--vibrant,#B87333) 0%,var(--lightVibrant,#D4944A) 100%); transition:width 0.3s linear; }
+`;
         let style = shadowRoot.getElementById('_unik-styles');
         if (!style) {
             style = document.createElement('style');
@@ -194,12 +198,32 @@ body { font-family: var(--font); margin:0; padding:0; background:transparent; }
         loading = true;
         error = "";
 
-        const apiPath = isExample ? "players" : "custom-players";
-
+        // Always try custom-players API first (user might have saved a custom version)
         try {
-            const res = await fetch(
-                `${getApiBase()}/api/${apiPath}/${playerName}`,
-            );
+            const customRes = await fetch(`${getApiBase()}/api/custom-players/${playerName}`);
+            if (customRes.ok) {
+                const text = await customRes.text();
+                if (!text.includes("<!doctype html>") || !text.includes("<title>UnikPlayer</title>")) {
+                    htmlTemplate = text;
+                    loading = false;
+                    return;
+                }
+            }
+        } catch (e) {
+            // custom API failed, fall through to inline/example
+        }
+
+        // Fall back to inline HTML (bundled .html in src/lib/players/)
+        const inlineHtml = getInlinePlayerHtml(playerName);
+        if (inlineHtml) {
+            htmlTemplate = inlineHtml;
+            loading = false;
+            return;
+        }
+
+        // Fall back to example players API
+        try {
+            const res = await fetch(`${getApiBase()}/api/players/${playerName}`);
             if (res.ok) {
                 const text = await res.text();
                 if (
@@ -302,4 +326,6 @@ body { font-family: var(--font); margin:0; padding:0; background:transparent; }
         color: #ff6b6b;
     }
 </style>
+
+
 

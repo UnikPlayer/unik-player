@@ -46,7 +46,7 @@
   border-radius: 0 1rem 1rem 0;
   border: 0.2rem solid var(--vibrant);
   border-left: none;
-  background-color: var(--darkMuted);
+  background-color: var(--darkVibrant);
   z-index: 1;
 }
 
@@ -61,17 +61,13 @@
   overflow: hidden;
 }
 
-.title {
-  margin-bottom: 0.3rem;
-}
-
 .title > * {
-  font-size: 2rem;
+  font-size: 3rem;
   font-weight:700
 }
 
 .artist > * {
-  font-size: 1.6rem;
+  font-size: 2rem;
   font-weight:400
 }`
   };
@@ -93,15 +89,13 @@
   const demoTitle = 'Midnight City';
   const demoArtist = 'M83';
   const demoThumbnail = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300"%3E%3Crect fill="%23111111" width="300" height="300"/%3E%3Ctext x="150" y="160" text-anchor="middle" fill="%23ffffff" font-size="40" font-family="sans-serif"%3EDEMO%3C/text%3E%3C/svg%3E';
-  // Black placeholder when no thumbnail available
   const blackPlaceholder = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300"%3E%3Crect fill="%23000000" width="300" height="300"/%3E%3C/svg%3E';
 
   // Use real data if available, fallback to demo
   $: hasRealData = $title !== null;
   $: displayTitle = preview ? demoTitle : ($title || demoTitle);
   $: displayArtist = preview ? demoArtist : ($artist || demoArtist);
-  // Black placeholder only when real track has no image, DEMO when no data
-  $: displayThumbnail = preview ? demoThumbnail : (hasRealData ? ($thumbnail || blackPlaceholder) : demoThumbnail);
+  $: displayThumbnail = $thumbnail || blackPlaceholder;
   $: shouldShow = preview || showAlways || $ShowTrack;
 
   // Animation config
