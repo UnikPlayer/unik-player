@@ -9,6 +9,7 @@ import {
   trackDuration,
   trackProgress,
   isPlaying,
+  trackBpm,
 } from "./stores/stores.js";
 import { get } from "svelte/store";
 
@@ -31,6 +32,7 @@ const MAX_SILENCE_MS = 120000; // Force reconnect if no data for 2 mins
 let lastTitle = null;
 let lastArtist = null;
 let lastThumbnailHash = null; // hash instead of reference comparison
+let nullThumbnailCount = 0;
 
 // Delay before hiding player (prevents flash on track switch)
 let hideTimeout = null;
@@ -191,6 +193,12 @@ export async function connect() {
     
     try {
       mediaData = JSON.parse(e.data);
+
+      // BPM of the currently playing track (from backend loopback analysis)
+      if (mediaData.bpm !== undefined) {
+        trackBpm.set(mediaData.bpm);
+      }
+
       // Log timeline data (skip full media/thumbnail to reduce noise)
       if (mediaData.timeline) {
         console.log(
@@ -258,108 +266,89 @@ export async function connect() {
         // Create new blob URL if thumbnail changed
         let newThumbnailUrl = get(thumbnail);
         if (thumbChanged) {
-          // Освобождаем старый blob URL
-          if (currentBlobUrl) {
-            URL.revokeObjectURL(currentBlobUrl);
-            currentBlobUrl = null;
-            currentBlob = null;
-          }
-
-          // Если нет thumbnail - оставляем null
           if (base64 === null) {
-            console.log("[WS] No thumbnail data, showing without image");
-            newThumbnailUrl = null;
-          }
-          // Декодируем base64 в blob
-          // base64 может быть: строкой, массивом байтов, или объектом Buffer
-          else if (Array.isArray(base64)) {
-            console.log("[WS] base64 type: array");
-            // Массив байтов напрямую
-            const bytes = new Uint8Array(base64);
-            const blob = new Blob([bytes], { type: "image/png" });
-            currentBlob = blob;
-            currentBlobUrl = URL.createObjectURL(blob);
-            newThumbnailUrl = currentBlobUrl;
-          } else if (
-            typeof base64 === "object" &&
-            base64 !== null &&
-            base64.data &&
-            Array.isArray(base64.data)
-          ) {
-            console.log("[WS] base64 type: Buffer object");
-            // Node Buffer serialized as {type: 'Buffer', data: [...]}
-            const bytes = new Uint8Array(base64.data);
-            const blob = new Blob([bytes], { type: "image/png" });
-            currentBlob = blob;
-            currentBlobUrl = URL.createObjectURL(blob);
-            newThumbnailUrl = currentBlobUrl;
-          } else if (typeof base64 === "string") {
-            console.log("[WS] base64 type: string");
-            // Удаляем data URL prefix если есть
-            let cleanBase64 = base64;
-            if (cleanBase64.includes(",")) {
-              cleanBase64 = cleanBase64.split(",")[1];
+            // Wait for 3 null thumbnails before showing placeholder
+            nullThumbnailCount++;
+            console.log("[WS] No thumbnail (attempt " + nullThumbnailCount + "/3)");
+            if (nullThumbnailCount < 3) {
+              // Keep old thumbnail, skip the rest this cycle
+              if (mediaData.timeline) updateTimeline(mediaData.timeline, mediaData.playback);
+              return;
             }
-            // Удаляем пробелы и переносы строк
-            cleanBase64 = cleanBase64.replace(/[\s\r\n]/g, "");
+            // 3 consecutive nulls — show placeholder
+            nullThumbnailCount = 0;
+            console.log("[WS] No thumbnail after 3 attempts — using placeholder");
+            if (currentBlobUrl) { URL.revokeObjectURL(currentBlobUrl); currentBlobUrl = null; currentBlob = null; }
+            newThumbnailUrl = null;
+          } else {
+            nullThumbnailCount = 0; // Reset counter
+            // Освобождаем старый blob URL
+            if (currentBlobUrl) {
+              URL.revokeObjectURL(currentBlobUrl);
+              currentBlobUrl = null;
+              currentBlob = null;
+            }
 
-            try {
-              const binaryString = atob(cleanBase64);
-              const bytes = new Uint8Array(binaryString.length);
-              for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-              }
+            // Декодируем base64 в blob
+            if (Array.isArray(base64)) {
+              const bytes = new Uint8Array(base64);
               const blob = new Blob([bytes], { type: "image/png" });
               currentBlob = blob;
               currentBlobUrl = URL.createObjectURL(blob);
               newThumbnailUrl = currentBlobUrl;
-            } catch (decodeErr) {
-              console.error("[WS] Failed to decode base64:", decodeErr);
-              // Fallback - try to use as-is if it's a data URL
-              if (base64.startsWith("data:")) {
-                newThumbnailUrl = base64;
-              }
-            }
-          }
-
-          // Crop Spotify branding bar on Windows 10
-          const srcName = (mediaData.source || "").toLowerCase();
-          console.log("[WS] Crop check:", { isWindows10, source: mediaData.source, hasBlob: !!currentBlob });
-          if (isWindows10 && srcName.includes('spotify') && currentBlob) {
-            console.log("[WS] Applying Spotify thumbnail crop...");
-            try {
-              const croppedBlob = await cropSpotifyThumbnail(currentBlob);
-              if (croppedBlob !== currentBlob) {
-                console.log("[WS] Crop applied successfully");
-                URL.revokeObjectURL(currentBlobUrl);
-                currentBlobUrl = URL.createObjectURL(croppedBlob);
+            } else if (typeof base64 === "object" && base64 !== null && base64.data && Array.isArray(base64.data)) {
+              const bytes = new Uint8Array(base64.data);
+              const blob = new Blob([bytes], { type: "image/png" });
+              currentBlob = blob;
+              currentBlobUrl = URL.createObjectURL(blob);
+              newThumbnailUrl = currentBlobUrl;
+            } else if (typeof base64 === "string") {
+              let cleanBase64 = base64;
+              if (cleanBase64.includes(",")) cleanBase64 = cleanBase64.split(",")[1];
+              cleanBase64 = cleanBase64.replace(/[\s\r\n]/g, "");
+              try {
+                const binaryString = atob(cleanBase64);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+                const blob = new Blob([bytes], { type: "image/png" });
+                currentBlob = blob;
+                currentBlobUrl = URL.createObjectURL(blob);
                 newThumbnailUrl = currentBlobUrl;
-                currentBlob = croppedBlob;
-              } else {
-                console.log("[WS] Crop skipped — image already square");
+              } catch (decodeErr) {
+                console.error("[WS] Failed to decode base64:", decodeErr);
+                if (base64.startsWith("data:")) newThumbnailUrl = base64;
               }
-            } catch (e) {
-              console.warn("[WS] Thumbnail crop failed, using original:", e);
             }
-          }
 
-          // Extract colors from new thumbnail (only if we have one and Vibrant is loaded)
-          if (newThumbnailUrl && Vibrant) {
-            Vibrant.from(newThumbnailUrl)
-              .getPalette()
-              .then((palette) => {
-                console.log("[Vibrant] Palette extracted:", palette);
+            // Crop Spotify branding bar (only on Windows 10 + Spotify)
+            if (isWindows10 && (mediaData.source || "").toLowerCase().includes('spotify') && currentBlob) {
+              try {
+                const croppedBlob = await cropSpotifyThumbnail(currentBlob);
+                if (croppedBlob !== currentBlob) {
+                  URL.revokeObjectURL(currentBlobUrl);
+                  currentBlobUrl = URL.createObjectURL(croppedBlob);
+                  newThumbnailUrl = currentBlobUrl;
+                  currentBlob = croppedBlob;
+                }
+              } catch (e) {
+                console.warn("[WS] Thumbnail crop failed:", e);
+              }
+            }
+
+            // Extract colors BEFORE updating stores (atomic update)
+            if (newThumbnailUrl && Vibrant) {
+              try {
+                const palette = await Vibrant.from(newThumbnailUrl).getPalette();
                 rgbToHex(palette);
-                // Notify components that :root colors are fresh
                 window.dispatchEvent(new CustomEvent('unik-colors-updated'));
-              })
-              .catch((err) => {
+              } catch (err) {
                 console.error("[Vibrant] Failed to extract palette:", err);
-              });
+              }
+            }
           }
         }
 
-        // ATOMIC UPDATE: Set all three stores at once to trigger single {#key} change
+        // ATOMIC UPDATE: all stores at once — colors already on :root
         title.set(newTitle);
         artist.set(newArtist);
         thumbnail.set(newThumbnailUrl);

@@ -8,6 +8,10 @@
         editingPlayer,
         editingPlayerIsCustom,
     } from "$lib/stores/stores";
+    import {
+        getAllPlayersAsync,
+        invalidateCustomPlayersCache,
+    } from "$lib/getPlayers.js";
 
     function getApiBase() {
         if (typeof window === "undefined") return "http://127.0.0.1:27272";
@@ -103,10 +107,26 @@
     
     let nameInput = '';
     let showNameInput = false;
+    let existingNames = new Set();
+    let nameTaken = false;
+
+    async function loadExistingNames() {
+        invalidateCustomPlayersCache();
+        const players = await getAllPlayersAsync();
+        existingNames = new Set(players.map((p) => p.name.toLowerCase()));
+    }
+
+    $: if (nameInput) {
+        const trimmed = nameInput.trim().replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
+        nameTaken = !!trimmed && existingNames.has(trimmed);
+    } else {
+        nameTaken = false;
+    }
 
     function openNameInput() {
         nameInput = '';
         showNameInput = true;
+        loadExistingNames();
     }
 
     function cancelNameInput() {
@@ -116,7 +136,7 @@
 
     async function confirmNameInput() {
         const trimmed = nameInput.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-        if (!trimmed) return;
+        if (!trimmed || nameTaken) return;
         showNameInput = false;
         await uploadAndOpen(trimmed, BASE_HTML, true);
     }
@@ -165,9 +185,19 @@
             ShowNotification.set(true);
             return;
         }
-        const name = file.name.replace(".html", "");
+        const base = file.name.replace(".html", "").trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+        if (!base) return;
+        await loadExistingNames();
+        const name = getAvailableName(base);
         const text = await file.text();
         await uploadAndOpen(name, text, false);
+    }
+
+    function getAvailableName(base) {
+        if (!existingNames.has(base.toLowerCase())) return base;
+        let i = 1;
+        while (existingNames.has(`${base}${i}`.toLowerCase())) i++;
+        return `${base}${i}`;
     }
 
     async function uploadAndOpen(name, html, openEditor) {
@@ -406,9 +436,12 @@
                             autofocus
                         />
                         <div class="name-input-hint">letters, numbers, _ -</div>
+                        {#if nameTaken}
+                            <div class="name-taken">This player name already exists</div>
+                        {/if}
                         <div class="name-input-actions">
                             <button class="name-btn cancel" on:click={cancelNameInput}>CANCEL</button>
-                            <button class="name-btn confirm" on:click={confirmNameInput} disabled={!nameInput.trim()}>CREATE</button>
+                            <button class="name-btn confirm" on:click={confirmNameInput} disabled={!nameInput.trim() || nameTaken}>CREATE</button>
                         </div>
                     </div>
                 {:else}
@@ -573,6 +606,10 @@
     .name-input-hint {
         font-family: 'Rubik', sans-serif; font-size: 11px;
         color: color-mix(in srgb, var(--c-text) 25%, transparent);
+    }
+    .name-taken {
+        font-family: 'Rubik', sans-serif; font-size: 11px;
+        color: var(--c-red);
     }
     .name-input-actions { display: flex; gap: 0.5rem; margin-top: 0.25rem; }
 

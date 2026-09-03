@@ -68,7 +68,7 @@
   .bg-gradient {
     position: fixed;
     inset: 0;
-    background: #ffffff;
+    background: #000000;
     z-index: -3;
   }
 

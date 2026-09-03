@@ -634,7 +634,6 @@
     <div class="sidebar-spacer"></div>
 
     <div class="btn-group">
-<!--    
       <div id="dance-sync-btn" class="blob-btn" style="width:{B3W}px;height:{B3H}px;"
         on:mouseenter={()=>h3=true} on:mouseleave={()=>h3=false}
         on:click={() => goto('/dancesync')} role="button" tabindex="0"
@@ -643,7 +642,6 @@
         <canvas bind:this={btn3fill} style="position:absolute;top:{-BTN_PAD}px;left:{-BTN_PAD}px;width:{B3W+BTN_PAD*2}px;height:{B3H+BTN_PAD*2}px;image-rendering:pixelated;display:block;pointer-events:none;"></canvas>
         <span class="btn-label" style="color:{h3?'var(--c1)':'var(--c2)'}">{texts.danceSync}</span>
       </div>
--->
       <div id="custom-btn" class="blob-btn" style="width:{B1W}px;height:{B1H}px;"
         on:mouseenter={()=>h1=true} on:mouseleave={()=>h1=false}
         on:click={() => showUploader = true} role="button" tabindex="0"
